@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_screen.dart';
-import '../../widgets/button.dart';
 import '../../../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -223,32 +222,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
               ),
               const SizedBox(height: 16),
-              // Debug button to test connection
-              TextButton(
-                onPressed: () async {
-                  final scaffoldMessenger = ScaffoldMessenger.of(context);
-                  final result = await ApiService.testConnection();
-                  if (mounted) {
-                    scaffoldMessenger.showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          result['success']
-                              ? '✅ ${result['message']}'
-                              : '❌ ${result['error']}',
-                        ),
-                        backgroundColor: result['success']
-                            ? Colors.green
-                            : Colors.red,
-                        duration: const Duration(seconds: 5),
-                      ),
-                    );
-                  }
-                },
-                child: const Text(
-                  '🔧 Test Backend Connection',
-                  style: TextStyle(color: Colors.blue),
-                ),
-              ),
               TextButton(
                 onPressed: () {
                   Navigator.push(
@@ -259,32 +232,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   );
                 },
                 child: const Text(
-                  'Don\'t have an account? Sign up',
+                  "Don't have an account? Sign up",
                   style: TextStyle(color: Color(0xFFFF6B6B)),
                 ),
-              ),
-              const SizedBox(height: 32),
-              const Row(
-                children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Or continue with',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 24),
-              SocialButton(
-                text: 'Continue with Google',
-                icon: Icons.g_mobiledata,
-                iconColor: Colors.red,
-                onPressed: () {
-                  // Social login logic
-                },
               ),
             ],
           ),

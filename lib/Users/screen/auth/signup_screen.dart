@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_screen.dart';
-import '../../widgets/button.dart';
 import '../../../services/api_service.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -338,10 +337,6 @@ class _SignupScreenState extends State<SignupScreen>
           _buildLoginLink(),
           const SizedBox(height: 16),
           _buildVendorLoginButton(),
-          const SizedBox(height: 16),
-          _buildDivider(),
-          const SizedBox(height: 16),
-          _buildSocialButtons(),
         ],
       ),
     );
@@ -470,52 +465,10 @@ class _SignupScreenState extends State<SignupScreen>
           MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
       },
-      child: RichText(
-        text: TextSpan(
-          text: 'Already have an account? ',
-          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          children: [
-            TextSpan(
-              text: 'Login',
-              style: const TextStyle(
-                color: Color(0xFFFF6B6B),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+      child: const Text(
+        "Already have an account? Login",
+        style: TextStyle(color: Color(0xFFFF6B6B)),
       ),
-    );
-  }
-
-  Widget _buildDivider() {
-    return Row(
-      children: [
-        Expanded(child: Container(height: 1, color: Colors.grey[300])),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Or sign up with',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        Expanded(child: Container(height: 1, color: Colors.grey[300])),
-      ],
-    );
-  }
-
-  Widget _buildSocialButtons() {
-    return SocialButton(
-      text: 'Continue with Google',
-      icon: Icons.g_mobiledata,
-      iconColor: Colors.red,
-      onPressed: () {
-        // Social signup logic
-      },
     );
   }
 
@@ -545,7 +498,7 @@ class _SignupScreenState extends State<SignupScreen>
             // Vendor login logic - navigate to vendor login screen
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Vendor login coming soon!'),
+                content: Text('Vendor registration coming soon!'),
                 backgroundColor: Color(0xFF2D3436),
                 duration: Duration(seconds: 2),
               ),
