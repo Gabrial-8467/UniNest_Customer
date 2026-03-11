@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'help_support.dart';
 import 'order_history.dart';
 import 'wishlist.dart';
 
@@ -17,9 +18,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'name': 'John Doe',
     'email': 'john.doe@campus.edu',
     'phone': '+1 234 567 8900',
-    'studentId': 'STU2024001',
-    'department': 'Computer Science',
-    'year': '3rd Year',
     'avatar': 'https://picsum.photos/seed/avatar1/200/200.jpg',
   };
 
@@ -120,49 +118,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             userData['email'],
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
-          const SizedBox(height: 16),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _infoTile('Student ID', userData['studentId']),
-                _infoTile('Department', userData['department']),
-                _infoTile('Year', userData['year']),
-              ],
-            ),
-          ),
         ],
       ),
-    );
-  }
-
-  Widget _infoTile(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Color(0xFFFF6B6B),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2D3436),
-          ),
-        ),
-      ],
     );
   }
 
@@ -212,7 +169,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.help,
             title: 'Help & Support',
             subtitle: 'Get help and contact support',
-            onTap: _showComingSoon,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      const HelpSupportScreen(showBackButton: true),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 10),
           _menuItem(

@@ -386,19 +386,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         isOpen: canteen['isOpen'] == true,
                         isSelected: isSelected,
                         onTap: () {
-                          if (isSelected) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    CanteenMenuScreen(canteenId: canteenId),
-                              ),
-                            );
-                            return;
-                          }
-                          setState(() {
-                            selectedCanteenId = canteenId;
-                          });
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  CanteenMenuScreen(canteenId: canteenId),
+                            ),
+                          );
                         },
                       );
                     },
