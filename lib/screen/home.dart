@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import '../widgets/canteen_card.dart';
 import '../widgets/product_card.dart';
+import 'all_canteens.dart';
 import 'canteen_menu.dart';
 import 'product_details.dart';
 
@@ -66,7 +67,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final description = (product['description'] ?? '')
           .toString()
           .toLowerCase();
-      final canteenName = (product['canteenName'] ?? '').toString().toLowerCase();
+      final canteenName = (product['canteenName'] ?? '')
+          .toString()
+          .toLowerCase();
       final canteenId = (product['canteenId'] ?? '').toString();
 
       if (selectedCanteenId != 'All' && canteenId != selectedCanteenId) {
@@ -126,8 +129,12 @@ class _HomeScreenState extends State<HomeScreen> {
       animation: appState,
       builder: (context, _) {
         final allCanteens = appState.canteens.toList();
-        final canteens = _filteredCanteens(allCanteens);
-        final products = _filteredProducts(appState.products.toList(), allCanteens);
+        final filteredCanteens = _filteredCanteens(allCanteens);
+        final canteens = filteredCanteens.take(4).toList();
+        final products = _filteredProducts(
+          appState.products.toList(),
+          allCanteens,
+        );
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),
@@ -136,29 +143,19 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _buildSearchBar(),
               _buildCategories(),
-              _buildCanteenSection(canteens),
               Expanded(
-                child: products.isEmpty
-                    ? _buildEmptyProductsState()
-                    : ProductGrid(
-                        products: products,
-                        onProductTap: (productId) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  ProductDetailsScreen(productId: productId),
-                            ),
-                          );
-                        },
-                        onFavoriteToggle: (productId, isFavorite) {
-                          appState.setFavorite(productId, isFavorite);
-                        },
-                        onAddToCart: (productId) {
-                          appState.addToCart(productId);
-                          _showAddToCartSnackbar();
-                        },
-                      ),
+                child: CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(child: _buildCanteenSection(canteens)),
+                    if (products.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _buildEmptyProductsState(),
+                      )
+                    else
+                      _buildProductsSliver(appState, products),
+                  ],
+                ),
               ),
             ],
           ),
@@ -311,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCanteenSection(List<Map<String, dynamic>> canteens) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -329,128 +326,137 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const Spacer(),
                 if (selectedCanteenId != 'All')
-                  TextButton(
+                  IconButton(
+                    tooltip: 'Clear canteen filter',
                     onPressed: () {
                       setState(() {
                         selectedCanteenId = 'All';
                       });
                     },
-                    child: const Text('Clear filter'),
+                    icon: const Icon(
+                      Icons.filter_alt_off_outlined,
+                      color: Color(0xFF636E72),
+                    ),
                   ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AllCanteensScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text('Show More'),
+                ),
               ],
             ),
           ),
-          SizedBox(
-            height: 146,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: canteens.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  final isSelected = selectedCanteenId == 'All';
-                  return _buildAllCanteensCard(isSelected);
-                }
+          canteens.isEmpty
+              ? Container(
+                  height: 86,
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'No canteens found for this search.',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                )
+              : SizedBox(
+                  height: 146,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: canteens.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final canteen = canteens[index];
+                      final canteenId = (canteen['id'] ?? '').toString();
+                      final isSelected = selectedCanteenId == canteenId;
 
-                final canteen = canteens[index - 1];
-                final canteenId = (canteen['id'] ?? '').toString();
-                final isSelected = selectedCanteenId == canteenId;
-
-                return CanteenCard(
-                  name: (canteen['name'] ?? 'Canteen').toString(),
-                  location: (canteen['location'] ?? '').toString(),
-                  rating: (canteen['rating'] as num?)?.toDouble() ?? 0,
-                  isOpen: canteen['isOpen'] == true,
-                  isSelected: isSelected,
-                  onTap: () {
-                    if (isSelected) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              CanteenMenuScreen(canteenId: canteenId),
-                        ),
+                      return CanteenCard(
+                        name: (canteen['name'] ?? 'Canteen').toString(),
+                        location: (canteen['location'] ?? '').toString(),
+                        rating: (canteen['rating'] as num?)?.toDouble() ?? 0,
+                        isOpen: canteen['isOpen'] == true,
+                        isSelected: isSelected,
+                        onTap: () {
+                          if (isSelected) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    CanteenMenuScreen(canteenId: canteenId),
+                              ),
+                            );
+                            return;
+                          }
+                          setState(() {
+                            selectedCanteenId = canteenId;
+                          });
+                        },
                       );
-                      return;
-                    }
-                    setState(() {
-                      selectedCanteenId = canteenId;
-                    });
-                  },
-                );
-              },
-            ),
-          ),
+                    },
+                  ),
+                ),
         ],
       ),
     );
   }
 
-  Widget _buildAllCanteensCard(bool isSelected) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () {
-        setState(() {
-          selectedCanteenId = 'All';
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 168,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFF6B6B) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? const Color(0xFFFF6B6B) : Colors.grey[300]!,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+  SliverPadding _buildProductsSliver(
+    CampusAppState appState,
+    List<Map<String, dynamic>> products,
+  ) {
+    return SliverPadding(
+      padding: const EdgeInsets.all(16),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.62,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.white.withValues(alpha: 0.2)
-                    : const Color(0xFFFF6B6B).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.dashboard_outlined,
-                color: isSelected ? Colors.white : const Color(0xFFFF6B6B),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'All Canteens',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? Colors.white : const Color(0xFF2D3436),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Show products from every canteen',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected ? Colors.white70 : Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final product = products[index];
+
+          return ProductCard(
+            productId: (product['id'] ?? '').toString(),
+            name: (product['name'] ?? 'Product Name').toString(),
+            price: (product['price'] as num?)?.toDouble() ?? 0,
+            imageUrl: (product['imageUrl'] ?? '').toString(),
+            canteenName: (product['canteenName'] ?? 'Unknown').toString(),
+            rating: (product['rating'] as num?)?.toDouble() ?? 0,
+            reviewCount: (product['reviewCount'] as num?)?.toInt() ?? 0,
+            isFavorite: product['isFavorite'] == true,
+            discount: product['discount']?.toString(),
+            isNew: product['isNew'] == true,
+            onTap: () {
+              final productId = (product['id'] ?? '').toString();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ProductDetailsScreen(productId: productId),
+                ),
+              );
+            },
+            onFavoriteTap: () {
+              final productId = (product['id'] ?? '').toString();
+              final nextValue = !(product['isFavorite'] == true);
+              appState.setFavorite(productId, nextValue);
+            },
+            onAddToCart: () {
+              appState.addToCart((product['id'] ?? '').toString());
+              _showAddToCartSnackbar();
+            },
+          );
+        }, childCount: products.length),
       ),
     );
   }

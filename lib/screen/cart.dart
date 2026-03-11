@@ -266,6 +266,7 @@ class CartScreen extends StatelessWidget {
         children: [
           _summaryRow('Subtotal', appState.subtotal),
           _summaryRow('Delivery Fee', appState.deliveryFee),
+          _summaryRow('Platform Fee', appState.platformFee),
           _summaryRow('Tax', appState.tax),
           const Divider(height: 18),
           _summaryRow('Total', appState.total, isTotal: true),

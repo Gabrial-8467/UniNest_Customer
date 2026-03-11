@@ -11,21 +11,11 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   int selectedPaymentMethod = 0;
-  String selectedDeliveryOption = 'pickup';
-  final TextEditingController notesController = TextEditingController();
 
   final List<Map<String, dynamic>> paymentMethods = const [
-    {'id': 0, 'name': 'Credit Card', 'icon': Icons.credit_card},
-    {'id': 1, 'name': 'Debit Card', 'icon': Icons.credit_card},
-    {'id': 2, 'name': 'Cash', 'icon': Icons.money},
-    {'id': 3, 'name': 'Campus Wallet', 'icon': Icons.account_balance_wallet},
+    {'id': 0, 'name': 'Cash', 'icon': Icons.money},
+    {'id': 1, 'name': 'UPI', 'icon': Icons.qr_code_scanner},
   ];
-
-  @override
-  void dispose() {
-    notesController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,19 +39,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),
           appBar: _buildAppBar(),
-          body: SingleChildScrollView(
-            child: Column(
-              children: [
-                _buildOrderSummary(appState),
-                const SizedBox(height: 16),
-                _buildDeliveryOptions(),
-                const SizedBox(height: 16),
-                _buildPaymentMethods(),
-                const SizedBox(height: 16),
-                _buildOrderNotes(),
-                const SizedBox(height: 24),
-              ],
+          body: ListView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
             ),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            children: [
+              _buildOrderSummary(appState),
+              const SizedBox(height: 16),
+              _buildPaymentMethods(),
+              const SizedBox(height: 24),
+            ],
           ),
           bottomNavigationBar: _buildPlaceOrderButton(appState),
         );
@@ -119,6 +107,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const Divider(height: 22),
           _summaryRow('Subtotal', appState.subtotal),
           _summaryRow('Delivery Fee', appState.deliveryFee),
+          _summaryRow('Platform Fee', appState.platformFee),
           _summaryRow('Tax', appState.tax),
           const Divider(height: 18),
           _summaryRow('Total', appState.total, isTotal: true),
@@ -202,77 +191,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildDeliveryOptions() {
-    return _sectionCard(
-      title: 'Delivery Option',
-      child: Column(
-        children: [
-          _deliveryOption('pickup', 'Pickup', 'Collect directly from canteen'),
-          const SizedBox(height: 10),
-          _deliveryOption(
-            'delivery',
-            'Delivery',
-            'Get delivered to your block',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _deliveryOption(String value, String title, String subtitle) {
-    final selected = selectedDeliveryOption == value;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedDeliveryOption = value;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: selected ? const Color(0xFFFF6B6B) : Colors.grey[300]!,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          color: selected
-              ? const Color(0xFFFF6B6B).withValues(alpha: 0.06)
-              : Colors.transparent,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              selected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: selected ? const Color(0xFFFF6B6B) : Colors.grey[600],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: selected
-                          ? const Color(0xFFFF6B6B)
-                          : const Color(0xFF2D3436),
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildPaymentMethods() {
     return _sectionCard(
       title: 'Payment Method',
@@ -321,23 +239,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOrderNotes() {
-    return _sectionCard(
-      title: 'Order Notes',
-      child: TextField(
-        controller: notesController,
-        maxLines: 3,
-        decoration: InputDecoration(
-          hintText: 'Any special instructions?',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey[300]!),
-          ),
         ),
       ),
     );
@@ -395,7 +296,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
           child: Text(
-            'Place Order • \u20B9${appState.total.toStringAsFixed(2)}',
+            'Place Order - \u20B9${appState.total.toStringAsFixed(2)}',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
         ),
@@ -437,8 +338,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     final orderId = appState.placeOrder(
       paymentMethod: method['name'] as String,
-      deliveryOption: selectedDeliveryOption,
-      notes: notesController.text.trim(),
+      deliveryOption: 'delivery',
     );
 
     await showDialog<void>(

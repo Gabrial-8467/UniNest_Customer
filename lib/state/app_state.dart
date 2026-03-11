@@ -1,13 +1,19 @@
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/mock_data.dart';
 
 class CampusAppState extends ChangeNotifier {
+  static const String _cartStorageKey = 'campus_eats_cart_items';
+
   CampusAppState()
     : _canteens = _cloneList(kRegisteredCanteens),
-      _products = _cloneList(kCatalogProducts);
+      _products = _cloneList(kCatalogProducts) {
+    _restoreCartFromStorage();
+  }
 
   final List<Map<String, dynamic>> _canteens;
   final List<Map<String, dynamic>> _products;
@@ -36,9 +42,11 @@ class CampusAppState extends ChangeNotifier {
 
   double get deliveryFee => _cartItems.isEmpty ? 0.0 : 2.99;
 
+  double get platformFee => _cartItems.isEmpty ? 0.0 : 1.99;
+
   double get tax => subtotal * 0.08;
 
-  double get total => subtotal + deliveryFee + tax;
+  double get total => subtotal + deliveryFee + platformFee + tax;
 
   List<Map<String, dynamic>> get favoriteProducts => _products
       .where((product) => product['isFavorite'] == true)
@@ -100,6 +108,7 @@ class CampusAppState extends ChangeNotifier {
     if (existingItem != null) {
       existingItem['quantity'] = (existingItem['quantity'] as int) + quantity;
       notifyListeners();
+      _persistCartToStorage();
       return;
     }
 
@@ -115,6 +124,7 @@ class CampusAppState extends ChangeNotifier {
     });
 
     notifyListeners();
+    _persistCartToStorage();
   }
 
   void updateCartQuantity(String productId, int quantity) {
@@ -130,11 +140,13 @@ class CampusAppState extends ChangeNotifier {
     }
 
     notifyListeners();
+    _persistCartToStorage();
   }
 
   void removeFromCart(String productId) {
     _cartItems.removeWhere((item) => item['id'] == productId);
     notifyListeners();
+    _persistCartToStorage();
   }
 
   void clearCart() {
@@ -143,6 +155,7 @@ class CampusAppState extends ChangeNotifier {
     }
     _cartItems.clear();
     notifyListeners();
+    _persistCartToStorage();
   }
 
   String placeOrder({
@@ -166,6 +179,7 @@ class CampusAppState extends ChangeNotifier {
       'notes': notes,
       'subtotal': subtotal,
       'deliveryFee': deliveryFee,
+      'platformFee': platformFee,
       'tax': tax,
       'total': total,
       'itemCount': cartItemCount,
@@ -176,6 +190,7 @@ class CampusAppState extends ChangeNotifier {
 
     _cartItems.clear();
     notifyListeners();
+    _persistCartToStorage();
     return orderId;
   }
 
@@ -195,6 +210,65 @@ class CampusAppState extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  Future<void> _restoreCartFromStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_cartStorageKey);
+
+      if (raw == null || raw.isEmpty) {
+        return;
+      }
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return;
+      }
+
+      final restoredItems = <Map<String, dynamic>>[];
+      for (final entry in decoded) {
+        if (entry is! Map) {
+          continue;
+        }
+        final item = Map<String, dynamic>.from(entry);
+        final id = (item['id'] ?? '').toString();
+        if (id.isEmpty) {
+          continue;
+        }
+
+        restoredItems.add({
+          'id': id,
+          'name': (item['name'] ?? '').toString(),
+          'price': (item['price'] as num?)?.toDouble() ?? 0.0,
+          'imageUrl': (item['imageUrl'] ?? '').toString(),
+          'canteenName': (item['canteenName'] ?? '').toString(),
+          'quantity': (item['quantity'] as num?)?.toInt() ?? 1,
+          'rating': (item['rating'] as num?)?.toDouble() ?? 0.0,
+          'reviewCount': (item['reviewCount'] as num?)?.toInt() ?? 0,
+        });
+      }
+
+      if (restoredItems.isEmpty) {
+        return;
+      }
+
+      _cartItems
+        ..clear()
+        ..addAll(restoredItems);
+      notifyListeners();
+    } catch (_) {
+      // Ignore invalid persisted cart data.
+    }
+  }
+
+  Future<void> _persistCartToStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cartStorageKey, jsonEncode(_cartItems));
+    } catch (_) {
+      // Ignore persistence errors and keep in-memory behavior.
+    }
   }
 
   static List<Map<String, dynamic>> _cloneList(
