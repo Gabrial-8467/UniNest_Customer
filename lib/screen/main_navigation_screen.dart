@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import 'cart.dart';
 import 'home.dart';
-import 'order_history.dart';
 import 'profile.dart';
 import 'wishlist.dart';
 
@@ -35,11 +34,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       builder: (context, _) {
         final pages = <Widget>[
           HomeScreen(
-            onOpenCart: () => _selectTab(3),
-            onOpenProfile: () => _selectTab(4),
+            onOpenCart: () => _selectTab(2),
+            onOpenProfile: () => _selectTab(3),
           ),
           const WishlistScreen(),
-          const OrderHistoryScreen(),
           CartScreen(showBackButton: false, onBrowseMenu: () => _selectTab(0)),
           const ProfileScreen(showBackButton: false),
         ];
@@ -60,11 +58,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 icon: Icon(Icons.favorite_border),
                 selectedIcon: Icon(Icons.favorite),
                 label: 'Wishlist',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.receipt_long_outlined),
-                selectedIcon: Icon(Icons.receipt_long),
-                label: 'Orders',
               ),
               NavigationDestination(
                 icon: Badge(
