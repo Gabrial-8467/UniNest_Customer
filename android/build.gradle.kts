@@ -1,3 +1,7 @@
+plugins {
+    // Plugins are automatically added by Flutter
+}
+
 allprojects {
     repositories {
         google()

@@ -39,6 +39,10 @@ android {
     }
 }
 
+dependencies {
+    // Add your regular dependencies here
+}
+
 flutter {
     source = "../.."
 }

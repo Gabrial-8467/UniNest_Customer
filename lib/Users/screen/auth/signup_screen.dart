@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'login_screen.dart';
-import '../../../widgets/button.dart';
+import '../../widgets/button.dart';
+import '../../../services/api_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -18,6 +20,7 @@ class _SignupScreenState extends State<SignupScreen>
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
   AnimationController? _animationController;
   Animation<double>? _fadeAnimation;
   Animation<Offset>? _slideAnimation;
@@ -53,6 +56,63 @@ class _SignupScreenState extends State<SignupScreen>
     _confirmPasswordController.dispose();
     _animationController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _signup() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final result = await ApiService.register(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          fullName: _nameController.text.trim(),
+          userType: 'customer',
+        );
+
+        if (result['success']) {
+          // Store user data
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('userEmail', _emailController.text.trim());
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Registration successful!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(result['error']),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Registration failed: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
   }
 
   @override
@@ -274,8 +334,10 @@ class _SignupScreenState extends State<SignupScreen>
           ),
           const SizedBox(height: 16),
           _buildSignupButton(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           _buildLoginLink(),
+          const SizedBox(height: 16),
+          _buildVendorLoginButton(),
           const SizedBox(height: 16),
           _buildDivider(),
           const SizedBox(height: 16),
@@ -374,11 +436,7 @@ class _SignupScreenState extends State<SignupScreen>
         ],
       ),
       child: ElevatedButton(
-        onPressed: () {
-          if (_formKey.currentState!.validate()) {
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        },
+        onPressed: _isLoading ? null : _signup,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -386,15 +444,20 @@ class _SignupScreenState extends State<SignupScreen>
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Text(
-          'Sign Up',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-            letterSpacing: 0.5,
-          ),
-        ),
+        child: _isLoading
+            ? const CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              )
+            : const Text(
+                'Sign Up',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
       ),
     );
   }
@@ -453,6 +516,58 @@ class _SignupScreenState extends State<SignupScreen>
       onPressed: () {
         // Social signup logic
       },
+    );
+  }
+
+  Widget _buildVendorLoginButton() {
+    return Container(
+      width: double.infinity,
+      height: 50,
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D3436),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF2D3436).withValues(alpha: 0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2D3436).withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            // Vendor login logic - navigate to vendor login screen
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Vendor login coming soon!'),
+                backgroundColor: Color(0xFF2D3436),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.store_outlined, size: 24, color: Colors.white),
+              const SizedBox(width: 12),
+              const Text(
+                'Register as Vendor',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

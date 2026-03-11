@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_screen.dart';
-import '../../../widgets/button.dart';
+import '../../widgets/button.dart';
+import '../../../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,12 +16,68 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _login() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final result = await ApiService.login(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        if (result['success']) {
+          // Store user data (you can implement token storage here)
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('userEmail', _emailController.text.trim());
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Login successful!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(result['error']),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Login failed: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
   }
 
   @override
@@ -150,18 +208,47 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    // Handle login logic here
-                    Navigator.pushReplacementNamed(context, '/home');
+                onPressed: _isLoading ? null : _login,
+                child: _isLoading
+                    ? const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      )
+                    : const Text(
+                        'Login',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 16),
+              // Debug button to test connection
+              TextButton(
+                onPressed: () async {
+                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+                  final result = await ApiService.testConnection();
+                  if (mounted) {
+                    scaffoldMessenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          result['success']
+                              ? '✅ ${result['message']}'
+                              : '❌ ${result['error']}',
+                        ),
+                        backgroundColor: result['success']
+                            ? Colors.green
+                            : Colors.red,
+                        duration: const Duration(seconds: 5),
+                      ),
+                    );
                   }
                 },
                 child: const Text(
-                  'Login',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  '🔧 Test Backend Connection',
+                  style: TextStyle(color: Colors.blue),
                 ),
               ),
-              const SizedBox(height: 16),
               TextButton(
                 onPressed: () {
                   Navigator.push(
