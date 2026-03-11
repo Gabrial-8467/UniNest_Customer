@@ -40,7 +40,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
           const WishlistScreen(),
           const OrderHistoryScreen(),
-          const CartScreen(showBackButton: false),
+          CartScreen(showBackButton: false, onBrowseMenu: () => _selectTab(0)),
           const ProfileScreen(showBackButton: false),
         ];
 

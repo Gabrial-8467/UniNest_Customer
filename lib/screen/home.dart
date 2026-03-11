@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_state.dart';
+import '../widgets/canteen_card.dart';
 import '../widgets/product_card.dart';
 import 'canteen_menu.dart';
-import 'cart.dart';
 import 'product_details.dart';
-import 'profile.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onOpenCart;
@@ -19,57 +18,104 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String selectedCategory = 'All';
-  String selectedCanteenChip = 'All';
+  String selectedCanteenId = 'All';
   String searchQuery = '';
 
-  final List<String> categories = const [
-    'All',
-    'Burgers',
-    'Pizza',
-    'Drinks',
-    'Desserts',
-    'Snacks',
+  final List<_CategoryOption> categories = const [
+    _CategoryOption(label: 'All', icon: Icons.grid_view_rounded),
+    _CategoryOption(label: 'Burgers', icon: Icons.lunch_dining_rounded),
+    _CategoryOption(label: 'Pizza', icon: Icons.local_pizza_rounded),
+    _CategoryOption(label: 'Drinks', icon: Icons.local_cafe_rounded),
+    _CategoryOption(label: 'Desserts', icon: Icons.icecream_rounded),
+    _CategoryOption(label: 'Snacks', icon: Icons.fastfood_rounded),
   ];
+
+  List<Map<String, dynamic>> _filteredCanteens(
+    List<Map<String, dynamic>> canteens,
+  ) {
+    final query = searchQuery.trim().toLowerCase();
+
+    if (query.isEmpty) {
+      return canteens;
+    }
+
+    return canteens.where((canteen) {
+      final name = (canteen['name'] ?? '').toString().toLowerCase();
+      final location = (canteen['location'] ?? '').toString().toLowerCase();
+      return name.contains(query) || location.contains(query);
+    }).toList();
+  }
 
   List<Map<String, dynamic>> _filteredProducts(
     List<Map<String, dynamic>> products,
+    List<Map<String, dynamic>> canteens,
   ) {
+    final query = searchQuery.trim().toLowerCase();
+    final matchingCanteenIds = canteens
+        .where((canteen) {
+          final name = (canteen['name'] ?? '').toString().toLowerCase();
+          final location = (canteen['location'] ?? '').toString().toLowerCase();
+          return query.isNotEmpty &&
+              (name.contains(query) || location.contains(query));
+        })
+        .map((canteen) => (canteen['id'] ?? '').toString())
+        .toSet();
+
     return products.where((product) {
       final name = (product['name'] ?? '').toString().toLowerCase();
       final description = (product['description'] ?? '')
           .toString()
           .toLowerCase();
-      final query = searchQuery.trim().toLowerCase();
+      final canteenName = (product['canteenName'] ?? '').toString().toLowerCase();
+      final canteenId = (product['canteenId'] ?? '').toString();
 
-      if (query.isNotEmpty &&
-          !name.contains(query) &&
-          !description.contains(query)) {
+      if (selectedCanteenId != 'All' && canteenId != selectedCanteenId) {
         return false;
       }
 
-      if (selectedCategory == 'All') {
-        return true;
+      final matchesSearch = query.isEmpty
+          ? true
+          : name.contains(query) ||
+                description.contains(query) ||
+                canteenName.contains(query) ||
+                matchingCanteenIds.contains(canteenId);
+
+      if (!matchesSearch) {
+        return false;
       }
 
-      switch (selectedCategory) {
-        case 'Burgers':
-          return name.contains('burger');
-        case 'Pizza':
-          return name.contains('pizza');
-        case 'Drinks':
-          return name.contains('shake') || name.contains('coffee');
-        case 'Desserts':
-          return name.contains('ice cream') ||
-              name.contains('sundae') ||
-              name.contains('dessert');
-        case 'Snacks':
-          return name.contains('fries') ||
-              name.contains('wings') ||
-              name.contains('sandwich');
-        default:
-          return true;
-      }
+      return _matchesCategory(name, description);
     }).toList();
+  }
+
+  bool _matchesCategory(String name, String description) {
+    if (selectedCategory == 'All') {
+      return true;
+    }
+
+    final text = '$name $description';
+
+    switch (selectedCategory) {
+      case 'Burgers':
+        return text.contains('burger');
+      case 'Pizza':
+        return text.contains('pizza');
+      case 'Drinks':
+        return text.contains('shake') ||
+            text.contains('coffee') ||
+            text.contains('drink');
+      case 'Desserts':
+        return text.contains('ice cream') ||
+            text.contains('sundae') ||
+            text.contains('dessert');
+      case 'Snacks':
+        return text.contains('fries') ||
+            text.contains('wings') ||
+            text.contains('sandwich') ||
+            text.contains('snack');
+      default:
+        return true;
+    }
   }
 
   @override
@@ -79,7 +125,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return AnimatedBuilder(
       animation: appState,
       builder: (context, _) {
-        final products = _filteredProducts(appState.products.toList());
+        final allCanteens = appState.canteens.toList();
+        final canteens = _filteredCanteens(allCanteens);
+        final products = _filteredProducts(appState.products.toList(), allCanteens);
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),
@@ -87,28 +135,30 @@ class _HomeScreenState extends State<HomeScreen> {
           body: Column(
             children: [
               _buildSearchBar(),
-              _buildCanteenSelector(appState),
               _buildCategories(),
+              _buildCanteenSection(canteens),
               Expanded(
-                child: ProductGrid(
-                  products: products,
-                  onProductTap: (productId) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            ProductDetailsScreen(productId: productId),
+                child: products.isEmpty
+                    ? _buildEmptyProductsState()
+                    : ProductGrid(
+                        products: products,
+                        onProductTap: (productId) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  ProductDetailsScreen(productId: productId),
+                            ),
+                          );
+                        },
+                        onFavoriteToggle: (productId, isFavorite) {
+                          appState.setFavorite(productId, isFavorite);
+                        },
+                        onAddToCart: (productId) {
+                          appState.addToCart(productId);
+                          _showAddToCartSnackbar();
+                        },
                       ),
-                    );
-                  },
-                  onFavoriteToggle: (productId, isFavorite) {
-                    appState.setFavorite(productId, isFavorite);
-                  },
-                  onAddToCart: (productId) {
-                    appState.addToCart(productId);
-                    _showAddToCartSnackbar();
-                  },
-                ),
               ),
             ],
           ),
@@ -142,52 +192,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      actions: [
-        IconButton(
-          onPressed:
-              widget.onOpenCart ??
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const CartScreen(showBackButton: true),
-                  ),
-                );
-              },
-          icon: Badge(
-            isLabelVisible: appState.cartItemCount > 0,
-            label: Text('${appState.cartItemCount}'),
-            child: const Icon(
-              Icons.shopping_cart_outlined,
-              color: Color(0xFF2D3436),
-            ),
-          ),
-        ),
-        IconButton(
-          onPressed:
-              widget.onOpenProfile ??
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const ProfileScreen(showBackButton: true),
-                  ),
-                );
-              },
-          icon: const Icon(Icons.person_outline, color: Color(0xFF2D3436)),
-        ),
-      ],
     );
   }
 
   Widget _buildSearchBar() {
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 10),
       child: TextField(
         decoration: InputDecoration(
-          hintText: 'Search for food...',
+          hintText: 'Search products or canteens...',
           prefixIcon: const Icon(Icons.search, color: Colors.grey),
           filled: true,
           fillColor: Colors.white,
@@ -217,142 +230,256 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCanteenSelector(CampusAppState appState) {
-    final canteens = appState.canteens;
+  Widget _buildCategories() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Categories',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2D3436),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                final isSelected = category.label == selectedCategory;
 
-    return Container(
-      height: 52,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: canteens.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return _buildCanteenChip(
-              label: 'All Products',
-              isSelected: selectedCanteenChip == 'All',
-              isOpen: true,
-              onTap: () {
-                setState(() {
-                  selectedCanteenChip = 'All';
-                });
+                return InkWell(
+                  borderRadius: BorderRadius.circular(24),
+                  onTap: () {
+                    setState(() {
+                      selectedCategory = category.label;
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFFFF6B6B)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFFFF6B6B)
+                            : Colors.grey[300]!,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          category.icon,
+                          size: 16,
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF2D3436),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          category.label,
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF2D3436),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               },
-            );
-          }
-
-          final canteen = canteens[index - 1];
-          final canteenId = canteen['id'] as String;
-          final isSelected = selectedCanteenChip == canteenId;
-
-          return _buildCanteenChip(
-            label: canteen['name'],
-            isSelected: isSelected,
-            isOpen: canteen['isOpen'] == true,
-            onTap: () {
-              setState(() {
-                selectedCanteenChip = canteenId;
-              });
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CanteenMenuScreen(canteenId: canteenId),
-                ),
-              );
-            },
-          );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCanteenChip({
-    required String label,
-    required bool isSelected,
-    required bool isOpen,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minWidth: 90),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+  Widget _buildCanteenSection(List<Map<String, dynamic>> canteens) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Row(
+              children: [
+                const Text(
+                  'Canteens',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2D3436),
+                  ),
+                ),
+                const Spacer(),
+                if (selectedCanteenId != 'All')
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        selectedCanteenId = 'All';
+                      });
+                    },
+                    child: const Text('Clear filter'),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 146,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: canteens.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  final isSelected = selectedCanteenId == 'All';
+                  return _buildAllCanteensCard(isSelected);
+                }
+
+                final canteen = canteens[index - 1];
+                final canteenId = (canteen['id'] ?? '').toString();
+                final isSelected = selectedCanteenId == canteenId;
+
+                return CanteenCard(
+                  name: (canteen['name'] ?? 'Canteen').toString(),
+                  location: (canteen['location'] ?? '').toString(),
+                  rating: (canteen['rating'] as num?)?.toDouble() ?? 0,
+                  isOpen: canteen['isOpen'] == true,
+                  isSelected: isSelected,
+                  onTap: () {
+                    if (isSelected) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              CanteenMenuScreen(canteenId: canteenId),
+                        ),
+                      );
+                      return;
+                    }
+                    setState(() {
+                      selectedCanteenId = canteenId;
+                    });
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAllCanteensCard(bool isSelected) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        setState(() {
+          selectedCanteenId = 'All';
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 168,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFFF6B6B) : Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          border: isSelected ? null : Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFFF6B6B) : Colors.grey[300]!,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : const Color(0xFF2D3436),
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 13,
-                ),
-                overflow: TextOverflow.ellipsis,
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.dashboard_outlined,
+                color: isSelected ? Colors.white : const Color(0xFFFF6B6B),
               ),
             ),
-            if (label != 'All Products') ...[
-              const SizedBox(width: 6),
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: isOpen ? Colors.green : Colors.red,
-                  shape: BoxShape.circle,
-                ),
+            const SizedBox(height: 14),
+            Text(
+              'All Canteens',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : const Color(0xFF2D3436),
               ),
-            ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Show products from every canteen',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: isSelected ? Colors.white70 : Colors.grey[600],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCategories() {
-    return Container(
-      height: 50,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final category = categories[index];
-          final isSelected = category == selectedCategory;
-
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                selectedCategory = category;
-              });
-            },
-            child: Container(
-              constraints: const BoxConstraints(minWidth: 60),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFFF6B6B) : Colors.white,
-                borderRadius: BorderRadius.circular(25),
-                border: isSelected
-                    ? null
-                    : Border.all(color: Colors.grey[300]!),
-              ),
-              child: Text(
-                category,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : const Color(0xFF2D3436),
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 13,
-                ),
-                overflow: TextOverflow.ellipsis,
+  Widget _buildEmptyProductsState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.search_off_rounded, size: 64, color: Colors.grey),
+            const SizedBox(height: 12),
+            const Text(
+              'No matching items',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D3436),
               ),
             ),
-          );
-        },
+            const SizedBox(height: 6),
+            Text(
+              'Try another product, canteen, or category.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -374,4 +501,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+class _CategoryOption {
+  final String label;
+  final IconData icon;
+
+  const _CategoryOption({required this.label, required this.icon});
 }

@@ -5,8 +5,9 @@ import 'checkout.dart';
 
 class CartScreen extends StatelessWidget {
   final bool showBackButton;
+  final VoidCallback? onBrowseMenu;
 
-  const CartScreen({super.key, this.showBackButton = true});
+  const CartScreen({super.key, this.showBackButton = true, this.onBrowseMenu});
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +91,15 @@ class CartScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: showBackButton ? () => Navigator.pop(context) : null,
+              onPressed:
+                  onBrowseMenu ??
+                  () {
+                    if (showBackButton) {
+                      Navigator.pop(context);
+                      return;
+                    }
+                    Navigator.pushNamed(context, '/home');
+                  },
               child: const Text('Browse Menu'),
             ),
           ],
