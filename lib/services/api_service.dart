@@ -10,12 +10,14 @@ class ApiService {
     required String password,
     required String fullName,
     String userType = 'customer',
+    String? studentType,
   }) async {
     return MockApiService.register(
       email: email,
       password: password,
       fullName: fullName,
       userType: userType,
+      studentType: studentType,
     );
   }
 

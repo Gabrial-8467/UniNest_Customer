@@ -13,28 +13,36 @@ class MockApiService {
     required String password,
     required String fullName,
     String userType = 'customer',
+    String? studentType,
   }) async {
     try {
       // Simulate network delay
       await Future.delayed(const Duration(seconds: 1));
-      
+
       // Mock successful registration
       final userData = {
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'email': email,
         'fullName': fullName,
         'userType': userType,
+        'studentType': studentType,
         'createdAt': DateTime.now().toIso8601String(),
       };
 
       // Store mock user data
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_mockUserKey, userData.toString());
-      await prefs.setString(_mockTokenKey, 'mock_token_${DateTime.now().millisecondsSinceEpoch}');
+      await prefs.setString(
+        _mockTokenKey,
+        'mock_token_${DateTime.now().millisecondsSinceEpoch}',
+      );
 
       return {'success': true, 'data': userData};
     } catch (e) {
-      return {'success': false, 'error': 'Registration failed: ${e.toString()}'};
+      return {
+        'success': false,
+        'error': 'Registration failed: ${e.toString()}',
+      };
     }
   }
 
@@ -45,7 +53,7 @@ class MockApiService {
     try {
       // Simulate network delay
       await Future.delayed(const Duration(seconds: 1));
-      
+
       // Mock successful login for any email/password (for demo purposes)
       if (email.isNotEmpty && password.length >= 6) {
         final userData = {
@@ -74,17 +82,23 @@ class MockApiService {
     try {
       // Simulate network delay
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       final prefs = await SharedPreferences.getInstance();
       final userData = prefs.getString(_mockUserKey);
-      
+
       if (userData != null) {
-        return {'success': true, 'data': {'user': userData}};
+        return {
+          'success': true,
+          'data': {'user': userData},
+        };
       } else {
         return {'success': false, 'error': 'User not found'};
       }
     } catch (e) {
-      return {'success': false, 'error': 'Failed to get profile: ${e.toString()}'};
+      return {
+        'success': false,
+        'error': 'Failed to get profile: ${e.toString()}',
+      };
     }
   }
 
@@ -92,10 +106,13 @@ class MockApiService {
     try {
       // Simulate network delay
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       return {'success': true, 'data': kRegisteredCanteens};
     } catch (e) {
-      return {'success': false, 'error': 'Failed to get canteens: ${e.toString()}'};
+      return {
+        'success': false,
+        'error': 'Failed to get canteens: ${e.toString()}',
+      };
     }
   }
 

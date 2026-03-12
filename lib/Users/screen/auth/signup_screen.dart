@@ -20,6 +20,7 @@ class _SignupScreenState extends State<SignupScreen>
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+  String _studentType = 'hostler'; // 'hostler' or 'day_scholar'
   AnimationController? _animationController;
   Animation<double>? _fadeAnimation;
   Animation<Offset>? _slideAnimation;
@@ -72,6 +73,7 @@ class _SignupScreenState extends State<SignupScreen>
           password: _passwordController.text,
           fullName: _nameController.text.trim(),
           userType: 'customer',
+          studentType: _studentType,
         );
 
         debugPrint('📊 Signup result: $result');
@@ -336,6 +338,8 @@ class _SignupScreenState extends State<SignupScreen>
               return null;
             },
           ),
+          const SizedBox(height: 8),
+          _buildStudentTypeSelector(),
           const SizedBox(height: 16),
           _buildSignupButton(),
           const SizedBox(height: 16),
@@ -525,6 +529,150 @@ class _SignupScreenState extends State<SignupScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStudentTypeSelector() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[300]!, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Student Type',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!, width: 1),
+            ),
+            child: Column(
+              children: [
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _studentType = 'hostler';
+                    });
+                  },
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _studentType == 'hostler'
+                                  ? const Color(0xFFFF6B6B)
+                                  : Colors.grey[600]!,
+                              width: 2,
+                            ),
+                          ),
+                          child: _studentType == 'hostler'
+                              ? Container(
+                                  margin: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Color(0xFFFF6B6B),
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Hostler',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Divider(
+                  height: 1,
+                  color: Colors.grey[300]!,
+                  indent: 16,
+                  endIndent: 16,
+                ),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _studentType = 'day_scholar';
+                    });
+                  },
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(12),
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _studentType == 'day_scholar'
+                                  ? const Color(0xFFFF6B6B)
+                                  : Colors.grey[600]!,
+                              width: 2,
+                            ),
+                          ),
+                          child: _studentType == 'day_scholar'
+                              ? Container(
+                                  margin: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Color(0xFFFF6B6B),
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Day Scholar',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

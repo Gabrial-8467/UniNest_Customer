@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'live_chat.dart';
+
 class HelpSupportScreen extends StatefulWidget {
   final bool showBackButton;
 
@@ -39,7 +41,7 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     FAQItem(
       question: 'Can I modify my order after placing it?',
       answer:
-          'You can modify or cancel your order within 5 minutes of placing it. After that, please contact the canteen directly.',
+          'No, you cannot modify or cancel your order after placing it. You can only cancel it within 5 minutes of placing it. After that, if you need to make changes, or have any concerns or you want to cancel, please contact the canteen directly.',
     ),
   ];
 
@@ -346,7 +348,12 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
   }
 
   void _startLiveChat() {
-    _showComingSoon('Live chat feature');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LiveChatScreen(showBackButton: true),
+      ),
+    );
   }
 
   void _reportIssue() {

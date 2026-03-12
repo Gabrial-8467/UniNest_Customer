@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_state.dart';
+import 'live_chat.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -34,7 +35,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       animation: appState,
       builder: (context, _) {
         final order = appState.getOrderById(widget.orderId);
-        
+
         if (order == null) {
           return Scaffold(
             appBar: AppBar(
@@ -42,9 +43,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               backgroundColor: Colors.white,
               elevation: 0,
             ),
-            body: const Center(
-              child: Text('Order not found'),
-            ),
+            body: const Center(child: Text('Order not found')),
           );
         }
 
@@ -85,10 +84,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       leading: widget.showBackButton
           ? IconButton(
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(
-                Icons.arrow_back,
-                color: Color(0xFF2D3436),
-              ),
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3436)),
             )
           : null,
       automaticallyImplyLeading: widget.showBackButton,
@@ -104,10 +100,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               ),
             );
           },
-          icon: const Icon(
-            Icons.refresh,
-            color: Color(0xFF2D3436),
-          ),
+          icon: const Icon(Icons.refresh, color: Color(0xFF2D3436)),
         ),
       ],
     );
@@ -116,10 +109,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   Widget _buildOrderStatusCard(Map<String, dynamic> order) {
     final status = order['status'] as String;
     final estimatedDelivery = order['estimatedDelivery'] as DateTime;
-    
+
     Color statusColor;
     IconData statusIcon;
-    
+
     switch (status) {
       case 'Delivered':
         statusColor = Colors.green;
@@ -174,10 +167,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     ),
                     Text(
                       'Order #${order['orderId']}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -240,8 +230,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   Widget _buildTrackingTimeline(Map<String, dynamic> order) {
-    final trackingSteps = (order['trackingSteps'] as List).cast<Map<String, dynamic>>();
-    
+    final trackingSteps = (order['trackingSteps'] as List)
+        .cast<Map<String, dynamic>>();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -272,7 +263,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             final index = entry.key;
             final step = entry.value;
             final isLast = index == trackingSteps.length - 1;
-            
+
             return _buildTrackingStep(
               step['title'],
               step['description'],
@@ -321,7 +312,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: completed ? const Color(0xFF2D3436) : Colors.grey[600],
+                      color: completed
+                          ? const Color(0xFF2D3436)
+                          : Colors.grey[600],
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -335,10 +328,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   const SizedBox(height: 4),
                   Text(
                     _formatTime(time),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   ),
                 ],
               ),
@@ -359,7 +349,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
   Widget _buildOrderDetails(Map<String, dynamic> order) {
     final items = (order['items'] as List).cast<Map<String, dynamic>>();
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -386,68 +376,66 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          ...items.map((item) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+          ...items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.restaurant_menu,
+                      color: Color(0xFFFF6B6B),
+                      size: 20,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.restaurant_menu,
-                    color: Color(0xFFFF6B6B),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item['name'],
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF2D3436),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['name'],
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2D3436),
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Qty: ${item['quantity']}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
+                        Text(
+                          'Qty: ${item['quantity']}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Text(
-                  '\u20B9${(item['price'] * item['quantity']).toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFFF6B6B),
+                  Text(
+                    '\u20B9${(item['price'] * item['quantity']).toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFFF6B6B),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          )),
+          ),
           const Divider(height: 24),
           _buildPriceRow('Subtotal', order['subtotal']),
           _buildPriceRow('Delivery Fee', order['deliveryFee']),
           _buildPriceRow('Platform Fee', order['platformFee']),
           _buildPriceRow('Tax', order['tax']),
           const Divider(height: 24),
-          _buildPriceRow(
-            'Total',
-            order['total'],
-            isTotal: true,
-          ),
+          _buildPriceRow('Total', order['total'], isTotal: true),
         ],
       ),
     );
@@ -472,7 +460,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             style: TextStyle(
               fontSize: isTotal ? 16 : 14,
               fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              color: isTotal ? const Color(0xFFFF6B6B) : const Color(0xFF2D3436),
+              color: isTotal
+                  ? const Color(0xFFFF6B6B)
+                  : const Color(0xFF2D3436),
             ),
           ),
         ],
@@ -482,7 +472,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
   Widget _buildActionButtons(Map<String, dynamic> order) {
     final status = order['status'] as String;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -592,7 +582,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
   void _showRateOrderDialog(Map<String, dynamic> order) {
     int rating = 0;
-    
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -660,26 +650,54 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Order Help'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('How can we help you with this order?'),
-            SizedBox(height: 16),
+            const Text('How can we help you with this order?'),
+            const SizedBox(height: 16),
             ListTile(
-              leading: Icon(Icons.phone),
-              title: Text('Call Support'),
-              subtitle: Text('Talk to our support team'),
+              leading: const Icon(Icons.phone),
+              title: const Text('Call Support'),
+              subtitle: const Text('Talk to our support team'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Calling support...'),
+                    backgroundColor: Color(0xFFFF6B6B),
+                  ),
+                );
+              },
             ),
             ListTile(
-              leading: Icon(Icons.chat),
-              title: Text('Live Chat'),
-              subtitle: Text('Chat with our support team'),
+              leading: const Icon(Icons.chat),
+              title: const Text('Live Chat'),
+              subtitle: const Text('Chat with our support team'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const LiveChatScreen(showBackButton: true),
+                  ),
+                );
+              },
             ),
             ListTile(
-              leading: Icon(Icons.email),
-              title: Text('Email Support'),
-              subtitle: Text('support@campuseats.com'),
+              leading: const Icon(Icons.email),
+              title: const Text('Email Support'),
+              subtitle: const Text('support@campuseats.com'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Opening email app...'),
+                    backgroundColor: Color(0xFFFF6B6B),
+                  ),
+                );
+              },
             ),
           ],
         ),
