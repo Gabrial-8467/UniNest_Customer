@@ -54,9 +54,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 selectedIcon: Icon(Icons.home),
                 label: 'Home',
               ),
-              const NavigationDestination(
-                icon: Icon(Icons.favorite_border),
-                selectedIcon: Icon(Icons.favorite),
+              NavigationDestination(
+                icon: Badge(
+                  isLabelVisible: appState.favoriteItemCount > 0,
+                  label: Text('${appState.favoriteItemCount}'),
+                  child: const Icon(Icons.favorite_border),
+                ),
+                selectedIcon: Badge(
+                  isLabelVisible: appState.favoriteItemCount > 0,
+                  label: Text('${appState.favoriteItemCount}'),
+                  child: const Icon(Icons.favorite),
+                ),
                 label: 'Wishlist',
               ),
               NavigationDestination(

@@ -56,7 +56,20 @@ class WishlistScreen extends StatelessWidget {
                     );
                   },
                   onFavoriteToggle: (productId, isFavorite) {
-                    appState.setFavorite(productId, isFavorite);
+                    appState.toggleFavorite(productId);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          isFavorite
+                              ? 'Added to favorites'
+                              : 'Removed from favorites',
+                        ),
+                        backgroundColor: isFavorite
+                            ? Color(0xFF4CAF50)
+                            : Color(0xFFFF6B6B),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
                   },
                   onAddToCart: (productId) {
                     appState.addToCart(productId);

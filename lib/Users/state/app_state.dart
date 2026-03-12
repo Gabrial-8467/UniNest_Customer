@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -8,17 +9,27 @@ import '../data/mock_data.dart';
 
 class CampusAppState extends ChangeNotifier {
   static const String _cartStorageKey = 'campus_eats_cart_items';
+  static const String _favoritesStorageKey = 'campus_eats_favorites';
 
   CampusAppState()
     : _canteens = _cloneList(kRegisteredCanteens),
       _products = _cloneList(kCatalogProducts) {
     _restoreCartFromStorage();
+    _restoreFavoritesFromStorage();
+    _startStatusUpdateTimer();
+  }
+
+  @override
+  void dispose() {
+    _statusUpdateTimer?.cancel();
+    super.dispose();
   }
 
   final List<Map<String, dynamic>> _canteens;
   final List<Map<String, dynamic>> _products;
   final List<Map<String, dynamic>> _cartItems = [];
   final List<Map<String, dynamic>> _orderHistory = [];
+  Timer? _statusUpdateTimer;
 
   UnmodifiableListView<Map<String, dynamic>> get canteens =>
       UnmodifiableListView(_canteens);
@@ -53,6 +64,8 @@ class CampusAppState extends ChangeNotifier {
       .map((product) => Map<String, dynamic>.from(product))
       .toList();
 
+  int get favoriteItemCount => favoriteProducts.length;
+
   List<Map<String, dynamic>> productsByCanteen(String canteenId) => _products
       .where((product) => product['canteenId'] == canteenId)
       .map((product) => Map<String, dynamic>.from(product))
@@ -83,6 +96,7 @@ class CampusAppState extends ChangeNotifier {
     }
     product['isFavorite'] = isFavorite;
     notifyListeners();
+    _persistFavoritesToStorage();
   }
 
   void toggleFavorite(String productId) {
@@ -92,6 +106,7 @@ class CampusAppState extends ChangeNotifier {
     }
     product['isFavorite'] = !(product['isFavorite'] == true);
     notifyListeners();
+    _persistFavoritesToStorage();
   }
 
   void addToCart(String productId, {int quantity = 1}) {
@@ -186,12 +201,147 @@ class CampusAppState extends ChangeNotifier {
       'items': _cartItems
           .map((item) => Map<String, dynamic>.from(item))
           .toList(),
+      'estimatedDelivery': _calculateEstimatedDelivery(deliveryOption),
+      'trackingSteps': _initializeTrackingSteps(),
     });
 
     _cartItems.clear();
     notifyListeners();
     _persistCartToStorage();
     return orderId;
+  }
+
+  DateTime _calculateEstimatedDelivery(String deliveryOption) {
+    final now = DateTime.now();
+    switch (deliveryOption.toLowerCase()) {
+      case 'express':
+        return now.add(const Duration(minutes: 30));
+      case 'standard':
+        return now.add(const Duration(minutes: 45));
+      case 'schedule':
+        return now.add(const Duration(hours: 1));
+      default:
+        return now.add(const Duration(minutes: 45));
+    }
+  }
+
+  List<Map<String, dynamic>> _initializeTrackingSteps() {
+    final now = DateTime.now();
+    return [
+      {
+        'title': 'Order Placed',
+        'description': 'Your order has been received',
+        'time': now,
+        'completed': true,
+      },
+      {
+        'title': 'Order Confirmed',
+        'description': 'Restaurant is preparing your order',
+        'time': now.add(const Duration(minutes: 5)),
+        'completed': false,
+      },
+      {
+        'title': 'Preparing',
+        'description': 'Your food is being prepared',
+        'time': now.add(const Duration(minutes: 15)),
+        'completed': false,
+      },
+      {
+        'title': 'Ready for Pickup',
+        'description': 'Your order is ready and waiting',
+        'time': now.add(const Duration(minutes: 25)),
+        'completed': false,
+      },
+      {
+        'title': 'Out for Delivery',
+        'description': 'Your order is on the way',
+        'time': now.add(const Duration(minutes: 30)),
+        'completed': false,
+      },
+      {
+        'title': 'Delivered',
+        'description': 'Enjoy your meal!',
+        'time': now.add(const Duration(minutes: 35)),
+        'completed': false,
+      },
+    ];
+  }
+
+  void updateOrderStatus(String orderId) {
+    final order = _getOrderById(orderId);
+    if (order == null) return;
+
+    final now = DateTime.now();
+    final trackingSteps = (order['trackingSteps'] as List)
+        .cast<Map<String, dynamic>>();
+
+    // Update order status based on time elapsed
+    final timeSincePlaced = now.difference(order['placedAt'] as DateTime);
+
+    if (timeSincePlaced.inMinutes >= 35) {
+      order['status'] = 'Delivered';
+      _markAllStepsCompleted(trackingSteps);
+    } else if (timeSincePlaced.inMinutes >= 30) {
+      order['status'] = 'Out for Delivery';
+      _markStepsUpTo(trackingSteps, 4);
+    } else if (timeSincePlaced.inMinutes >= 25) {
+      order['status'] = 'Ready for Pickup';
+      _markStepsUpTo(trackingSteps, 3);
+    } else if (timeSincePlaced.inMinutes >= 15) {
+      order['status'] = 'Preparing';
+      _markStepsUpTo(trackingSteps, 2);
+    } else if (timeSincePlaced.inMinutes >= 5) {
+      order['status'] = 'Confirmed';
+      _markStepsUpTo(trackingSteps, 1);
+    }
+
+    notifyListeners();
+  }
+
+  void _markStepsUpTo(List<Map<String, dynamic>> steps, int index) {
+    for (int i = 0; i <= index && i < steps.length; i++) {
+      steps[i]['completed'] = true;
+    }
+  }
+
+  void _markAllStepsCompleted(List<Map<String, dynamic>> steps) {
+    for (final step in steps) {
+      step['completed'] = true;
+    }
+  }
+
+  void _startStatusUpdateTimer() {
+    _statusUpdateTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _updateAllOrderStatuses();
+    });
+  }
+
+  void _updateAllOrderStatuses() {
+    bool hasUpdates = false;
+    for (final order in _orderHistory) {
+      final orderId = order['orderId'] as String;
+      final oldStatus = order['status'] as String;
+      updateOrderStatus(orderId);
+      if (oldStatus != order['status']) {
+        hasUpdates = true;
+      }
+    }
+    if (hasUpdates) {
+      notifyListeners();
+    }
+  }
+
+  Map<String, dynamic>? getOrderById(String orderId) {
+    return _getOrderById(orderId);
+  }
+
+  Map<String, dynamic>? _getOrderById(String orderId) {
+    for (final order in _orderHistory) {
+      if (order['orderId'] == orderId) {
+        return order;
+      }
+    }
+    return null;
   }
 
   Map<String, dynamic>? _getProductRef(String productId) {
@@ -210,6 +360,55 @@ class CampusAppState extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  Future<void> _restoreFavoritesFromStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_favoritesStorageKey);
+
+      if (raw == null || raw.isEmpty) {
+        return;
+      }
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return;
+      }
+
+      final favoriteIds = <String>[];
+      for (final entry in decoded) {
+        if (entry is! Map) {
+          continue;
+        }
+        final id = (entry['id'] ?? '').toString();
+        if (id.isNotEmpty) {
+          favoriteIds.add(id);
+        }
+      }
+
+      for (final product in _products) {
+        if (favoriteIds.contains(product['id'])) {
+          product['isFavorite'] = true;
+        }
+      }
+      notifyListeners();
+    } catch (_) {
+      // Ignore invalid persisted favorites data.
+    }
+  }
+
+  Future<void> _persistFavoritesToStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final favoriteProducts = _products
+          .where((product) => product['isFavorite'] == true)
+          .map((product) => {'id': product['id']})
+          .toList();
+      await prefs.setString(_favoritesStorageKey, jsonEncode(favoriteProducts));
+    } catch (_) {
+      // Ignore persistence errors and keep in-memory behavior.
+    }
   }
 
   Future<void> _restoreCartFromStorage() async {

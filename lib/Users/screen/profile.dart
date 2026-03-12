@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../services/api_service.dart';
 
 import 'help_support.dart';
 import 'order_history.dart';
@@ -430,13 +431,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              final navigator = Navigator.of(context);
               Navigator.pop(context);
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/login',
-                (route) => false,
-              );
+              await ApiService.logout();
+              navigator.pushNamedAndRemoveUntil('/login', (route) => false);
             },
             child: const Text('Logout'),
           ),

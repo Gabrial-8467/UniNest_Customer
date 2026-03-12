@@ -64,6 +64,9 @@ class _SignupScreenState extends State<SignupScreen>
       });
 
       try {
+        debugPrint(
+          '🔥 Attempting signup with: ${_emailController.text.trim()}',
+        );
         final result = await ApiService.register(
           email: _emailController.text.trim(),
           password: _passwordController.text,
@@ -71,8 +74,9 @@ class _SignupScreenState extends State<SignupScreen>
           userType: 'customer',
         );
 
+        debugPrint('📊 Signup result: $result');
+
         if (result['success']) {
-          // Store user data
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('userEmail', _emailController.text.trim());
 
@@ -89,13 +93,14 @@ class _SignupScreenState extends State<SignupScreen>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(result['error']),
+                content: Text('Registration failed: ${result['error']}'),
                 backgroundColor: Colors.red,
               ),
             );
           }
         }
       } catch (e) {
+        debugPrint('❌ Signup error: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

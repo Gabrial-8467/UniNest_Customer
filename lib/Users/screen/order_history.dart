@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_state.dart';
+import 'order_tracking.dart';
 
 class OrderHistoryScreen extends StatelessWidget {
   final bool showBackButton;
@@ -104,6 +105,23 @@ class OrderHistoryScreen extends StatelessWidget {
   ) {
     final items = (order['items'] as List).cast<Map<String, dynamic>>();
     final preview = items.take(2).map((item) => item['name']).join(', ');
+    final status = order['status'] as String;
+
+    Color statusColor;
+    switch (status) {
+      case 'Delivered':
+        statusColor = Colors.green;
+        break;
+      case 'Out for Delivery':
+        statusColor = Colors.blue;
+        break;
+      case 'Preparing':
+      case 'Ready for Pickup':
+        statusColor = Colors.orange;
+        break;
+      default:
+        statusColor = Colors.grey;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -140,13 +158,13 @@ class OrderHistoryScreen extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.12),
+                  color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  order['status'],
-                  style: const TextStyle(
-                    color: Colors.green,
+                  status,
+                  style: TextStyle(
+                    color: statusColor,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -188,6 +206,36 @@ class OrderHistoryScreen extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                // Update order status before navigating
+                AppStateScope.of(context).updateOrderStatus(order['orderId']);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OrderTrackingScreen(
+                      orderId: order['orderId'],
+                      showBackButton: true,
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.location_on, size: 16),
+              label: const Text('Track Order'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6B6B),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
           ),
         ],
       ),
