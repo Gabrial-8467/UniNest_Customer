@@ -187,7 +187,7 @@ class _SignupScreenState extends State<SignupScreen>
 
   Widget _buildHeaderCard() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -215,7 +215,7 @@ class _SignupScreenState extends State<SignupScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(50),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
@@ -553,29 +553,18 @@ class _SignupScreenState extends State<SignupScreen>
             ),
           ),
           const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[300]!, width: 1),
-            ),
-            child: Column(
-              children: [
-                InkWell(
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
                   onTap: () {
                     setState(() {
                       _studentType = 'hostler';
                     });
                   },
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
-                  ),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
                     child: Row(
                       children: [
                         Container(
@@ -612,27 +601,17 @@ class _SignupScreenState extends State<SignupScreen>
                     ),
                   ),
                 ),
-                Divider(
-                  height: 1,
-                  color: Colors.grey[300]!,
-                  indent: 16,
-                  endIndent: 16,
-                ),
-                InkWell(
+              ),
+              Expanded(
+                child: InkWell(
                   onTap: () {
                     setState(() {
                       _studentType = 'day_scholar';
                     });
                   },
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(12),
-                  ),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
                     child: Row(
                       children: [
                         Container(
@@ -669,8 +648,8 @@ class _SignupScreenState extends State<SignupScreen>
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
