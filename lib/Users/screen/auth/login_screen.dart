@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 import '../../../services/api_service.dart';
+import '../../../services/auth_service.dart';
+import '../../../utils/utils.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -69,9 +70,12 @@ class _LoginScreenState extends State<LoginScreen>
         debugPrint('📊 Login result: $result');
 
         if (result['success']) {
-          // Store user data (you can implement token storage here)
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('userEmail', _emailController.text.trim());
+          // Store authentication token and user data
+          final token =
+              result['data']['token'] ??
+              'default_token'; // Get token from API response
+          await AuthService.saveToken(token);
+          await AuthService.saveUserData(result['data'] ?? {});
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -115,7 +119,6 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -135,12 +138,7 @@ class _LoginScreenState extends State<LoginScreen>
           child: Form(
             key: _formKey,
             child: Padding(
-              padding: EdgeInsets.only(
-                left: 16.0,
-                right: 16.0,
-                top: 16.0,
-                bottom: keyboardHeight > 0 ? 16.0 : 32.0,
-              ),
+              padding: EdgeInsets.all(AppConstants.defaultPadding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -212,7 +210,7 @@ class _LoginScreenState extends State<LoginScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(50),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
@@ -280,17 +278,7 @@ class _LoginScreenState extends State<LoginScreen>
               label: 'Email Address',
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your email';
-                }
-                if (!RegExp(
-                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                ).hasMatch(value)) {
-                  return 'Please enter a valid email';
-                }
-                return null;
-              },
+              validator: Validators.validateEmail,
             ),
             SizedBox(height: isTablet ? 20 : 16),
             _buildTextField(
@@ -299,17 +287,9 @@ class _LoginScreenState extends State<LoginScreen>
               icon: Icons.lock_outline,
               obscureText: _obscurePassword,
               isPassword: true,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your password';
-                }
-                if (value.length < 6) {
-                  return 'Password must be at least 6 characters';
-                }
-                return null;
-              },
+              validator: Validators.validatePassword,
             ),
-            SizedBox(height: isTablet ? 12 : 8),
+            SizedBox(height: AppConstants.smallPadding),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(

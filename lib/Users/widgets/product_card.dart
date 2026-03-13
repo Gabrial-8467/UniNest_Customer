@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/utils.dart';
 
 class ProductCard extends StatelessWidget {
   final String productId;
@@ -297,7 +298,7 @@ class ProductCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 2),
                     Text(
-                      discountedPrice.toStringAsFixed(2),
+                      CurrencyFormatter.formatRupeeRaw(discountedPrice),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -309,7 +310,7 @@ class ProductCard extends StatelessWidget {
               ),
               if (hasDiscount)
                 Text(
-                  '\u20B9${originalPrice.toStringAsFixed(2)}',
+                  CurrencyFormatter.formatRupee(originalPrice),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

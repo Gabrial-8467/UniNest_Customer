@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'Users/screen/main_navigation_screen.dart';
+import 'Users/screen/auth/login_screen.dart';
+import 'services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -26,38 +28,37 @@ class _SplashScreenState extends State<SplashScreen>
   void _initializeAnimations() {
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1000), // Reduced from 1500ms
     );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
 
-    _scaleAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.elasticOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
+    );
 
     _animationController.forward();
   }
 
-  void _navigateToHome() {
-    Future.delayed(const Duration(seconds: 3), () {
+  void _navigateToHome() async {
+    // Reduce splash delay and make navigation faster
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (mounted) {
+      // Quick check if user is logged in (non-blocking)
+      final isLoggedIn = await AuthService.isLoggedIn();
+
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => const MainNavigationScreen(),
+            builder: (context) =>
+                isLoggedIn ? const MainNavigationScreen() : const LoginScreen(),
           ),
         );
       }
-    });
+    }
   }
 
   @override
@@ -104,9 +105,9 @@ class _SplashScreenState extends State<SplashScreen>
                           color: Color(0xFFFF6B6B),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 30),
-                      
+
                       // App Name
                       const Text(
                         'Campus Eats',
@@ -117,9 +118,9 @@ class _SplashScreenState extends State<SplashScreen>
                           letterSpacing: 1.2,
                         ),
                       ),
-                      
+
                       const SizedBox(height: 10),
-                      
+
                       // Tagline
                       const Text(
                         'Delicious food at your doorstep',
@@ -129,9 +130,9 @@ class _SplashScreenState extends State<SplashScreen>
                           letterSpacing: 0.5,
                         ),
                       ),
-                      
+
                       const SizedBox(height: 50),
-                      
+
                       // Loading indicator
                       SizedBox(
                         width: 40,

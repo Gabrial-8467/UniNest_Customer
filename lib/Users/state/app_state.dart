@@ -5,18 +5,18 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../data/mock_data.dart';
+import '../../../services/api_service.dart';
+import '../../../utils/utils.dart';
+import '../../../utils/constants.dart';
 
 class CampusAppState extends ChangeNotifier {
-  static const String _cartStorageKey = 'campus_eats_cart_items';
-  static const String _favoritesStorageKey = 'campus_eats_favorites';
-
-  CampusAppState()
-    : _canteens = _cloneList(kRegisteredCanteens),
-      _products = _cloneList(kCatalogProducts) {
+  CampusAppState() {
+    _canteens.addAll(kRegisteredCanteens);
     _restoreCartFromStorage();
     _restoreFavoritesFromStorage();
+    _restoreOrdersFromStorage();
     _startStatusUpdateTimer();
+    _fetchProductsFromBackend();
   }
 
   @override
@@ -25,11 +25,74 @@ class CampusAppState extends ChangeNotifier {
     super.dispose();
   }
 
-  final List<Map<String, dynamic>> _canteens;
-  final List<Map<String, dynamic>> _products;
+  final List<Map<String, dynamic>> _canteens = [];
+  final List<Map<String, dynamic>> _products = [];
   final List<Map<String, dynamic>> _cartItems = [];
   final List<Map<String, dynamic>> _orderHistory = [];
   Timer? _statusUpdateTimer;
+  bool _isLoadingProducts = false;
+
+  bool get isLoadingProducts => _isLoadingProducts;
+
+  // Fetch products from backend API
+  Future<void> _fetchProductsFromBackend() async {
+    _isLoadingProducts = true;
+    notifyListeners();
+
+    try {
+      debugPrint('🔍 AppState: Fetching products from backend...');
+      final response = await ApiService.getProducts();
+
+      if (response['success'] == true) {
+        final List<dynamic> productsData = response['data'];
+        _products.clear();
+
+        for (final product in productsData) {
+          if (product is Map<String, dynamic>) {
+            // Convert backend product format to app format
+            final appProduct = {
+              'id':
+                  product['_id']?.toString() ?? product['id']?.toString() ?? '',
+              'name': product['name'] ?? '',
+              'description': product['description'] ?? '',
+              'price': (product['price'] as num?)?.toDouble() ?? 0.0,
+              'category': product['category'] ?? '',
+              'imageUrl': product['image'] ?? product['imageUrl'] ?? '',
+              'stock': product['stock'] ?? 0,
+              'canteenId': 'default', // Add default canteen ID
+              'canteenName': 'Main Canteen', // Add default canteen name
+              'rating': 4.0, // Add default rating
+              'reviewCount': 10, // Add default review count
+              'isFavorite': false, // Add default favorite status
+            };
+            _products.add(appProduct);
+          }
+        }
+
+        debugPrint(
+          '✅ AppState: Loaded ${_products.length} products from backend',
+        );
+      } else {
+        debugPrint(
+          '❌ AppState: Failed to fetch products: ${response['error']}',
+        );
+        // Fallback to mock data if backend fails
+        _products.addAll(kCatalogProducts);
+      }
+    } catch (e) {
+      debugPrint('💥 AppState: Error fetching products: $e');
+      // Fallback to mock data on error
+      _products.addAll(kCatalogProducts);
+    } finally {
+      _isLoadingProducts = false;
+      notifyListeners();
+    }
+  }
+
+  // Public method to refresh products
+  Future<void> refreshProducts() async {
+    await _fetchProductsFromBackend();
+  }
 
   UnmodifiableListView<Map<String, dynamic>> get canteens =>
       UnmodifiableListView(_canteens);
@@ -208,6 +271,7 @@ class CampusAppState extends ChangeNotifier {
     _cartItems.clear();
     notifyListeners();
     _persistCartToStorage();
+    _persistOrdersToStorage();
     return orderId;
   }
 
@@ -328,6 +392,7 @@ class CampusAppState extends ChangeNotifier {
     }
     if (hasUpdates) {
       notifyListeners();
+      _persistOrdersToStorage();
     }
   }
 
@@ -365,7 +430,7 @@ class CampusAppState extends ChangeNotifier {
   Future<void> _restoreFavoritesFromStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_favoritesStorageKey);
+      final raw = prefs.getString(AppConstants.favoritesKey);
 
       if (raw == null || raw.isEmpty) {
         return;
@@ -405,7 +470,10 @@ class CampusAppState extends ChangeNotifier {
           .where((product) => product['isFavorite'] == true)
           .map((product) => {'id': product['id']})
           .toList();
-      await prefs.setString(_favoritesStorageKey, jsonEncode(favoriteProducts));
+      await prefs.setString(
+        AppConstants.favoritesKey,
+        jsonEncode(favoriteProducts),
+      );
     } catch (_) {
       // Ignore persistence errors and keep in-memory behavior.
     }
@@ -414,7 +482,7 @@ class CampusAppState extends ChangeNotifier {
   Future<void> _restoreCartFromStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_cartStorageKey);
+      final raw = prefs.getString(AppConstants.cartKey);
 
       if (raw == null || raw.isEmpty) {
         return;
@@ -464,18 +532,113 @@ class CampusAppState extends ChangeNotifier {
   Future<void> _persistCartToStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_cartStorageKey, jsonEncode(_cartItems));
+      await prefs.setString(AppConstants.cartKey, jsonEncode(_cartItems));
     } catch (_) {
       // Ignore persistence errors and keep in-memory behavior.
     }
   }
 
-  static List<Map<String, dynamic>> _cloneList(
-    List<Map<String, dynamic>> source,
-  ) {
-    return source
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList(growable: true);
+  Future<void> _restoreOrdersFromStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('order_history');
+
+      if (raw == null || raw.isEmpty) {
+        return;
+      }
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return;
+      }
+
+      final restoredOrders = <Map<String, dynamic>>[];
+      for (final entry in decoded) {
+        if (entry is! Map) {
+          continue;
+        }
+        final order = Map<String, dynamic>.from(entry);
+
+        // Convert DateTime strings back to DateTime objects
+        if (order['placedAt'] is String) {
+          order['placedAt'] = DateTime.parse(order['placedAt']);
+        }
+        if (order['estimatedDelivery'] is String) {
+          order['estimatedDelivery'] = DateTime.parse(
+            order['estimatedDelivery'],
+          );
+        }
+
+        // Convert tracking steps DateTime strings back to DateTime objects
+        if (order['trackingSteps'] is List) {
+          final trackingSteps = (order['trackingSteps'] as List)
+              .whereType<Map>()
+              .map((step) => Map<String, dynamic>.from(step))
+              .toList();
+
+          for (final step in trackingSteps) {
+            if (step['time'] is String) {
+              step['time'] = DateTime.parse(step['time']);
+            }
+          }
+          order['trackingSteps'] = trackingSteps;
+        }
+
+        restoredOrders.add(order);
+      }
+
+      if (restoredOrders.isNotEmpty) {
+        _orderHistory
+          ..clear()
+          ..addAll(restoredOrders);
+        notifyListeners();
+      }
+    } catch (_) {
+      // Ignore invalid persisted orders data.
+    }
+  }
+
+  Future<void> _persistOrdersToStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Convert DateTime objects to strings for JSON serialization
+      final serializableOrders = _orderHistory.map((order) {
+        final serializableOrder = Map<String, dynamic>.from(order);
+
+        // Convert DateTime to string
+        if (serializableOrder['placedAt'] is DateTime) {
+          serializableOrder['placedAt'] =
+              (serializableOrder['placedAt'] as DateTime).toIso8601String();
+        }
+        if (serializableOrder['estimatedDelivery'] is DateTime) {
+          serializableOrder['estimatedDelivery'] =
+              (serializableOrder['estimatedDelivery'] as DateTime)
+                  .toIso8601String();
+        }
+
+        // Convert tracking steps DateTime to strings
+        if (serializableOrder['trackingSteps'] is List) {
+          final trackingSteps = (serializableOrder['trackingSteps'] as List)
+              .whereType<Map>()
+              .map((step) => Map<String, dynamic>.from(step))
+              .toList();
+
+          for (final step in trackingSteps) {
+            if (step['time'] is DateTime) {
+              step['time'] = (step['time'] as DateTime).toIso8601String();
+            }
+          }
+          serializableOrder['trackingSteps'] = trackingSteps;
+        }
+
+        return serializableOrder;
+      }).toList();
+
+      await prefs.setString('order_history', jsonEncode(serializableOrders));
+    } catch (_) {
+      // Ignore persistence errors and keep in-memory behavior.
+    }
   }
 }
 

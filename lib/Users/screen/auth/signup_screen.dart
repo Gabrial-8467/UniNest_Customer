@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_screen.dart';
 import '../../../services/api_service.dart';
+import '../../../utils/utils.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -276,15 +277,7 @@ class _SignupScreenState extends State<SignupScreen>
             controller: _nameController,
             label: 'Full Name',
             icon: Icons.person_outline,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your name';
-              }
-              if (value.length < 3) {
-                return 'Name must be at least 3 characters';
-              }
-              return null;
-            },
+            validator: Validators.validateName,
           ),
           const SizedBox(height: 8),
           _buildTextField(
@@ -292,17 +285,7 @@ class _SignupScreenState extends State<SignupScreen>
             label: 'Email',
             icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your email';
-              }
-              if (!RegExp(
-                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-              ).hasMatch(value)) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
+            validator: Validators.validateEmail,
           ),
           const SizedBox(height: 8),
           _buildTextField(
@@ -311,15 +294,7 @@ class _SignupScreenState extends State<SignupScreen>
             icon: Icons.lock_outline,
             obscureText: _obscurePassword,
             isPassword: true,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your password';
-              }
-              if (value.length < 6) {
-                return 'Password must be at least 6 characters';
-              }
-              return null;
-            },
+            validator: Validators.validatePassword,
           ),
           const SizedBox(height: 8),
           _buildTextField(
@@ -328,15 +303,10 @@ class _SignupScreenState extends State<SignupScreen>
             icon: Icons.lock_outline,
             obscureText: _obscureConfirmPassword,
             isPassword: true,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please confirm your password';
-              }
-              if (value != _passwordController.text) {
-                return 'Passwords do not match';
-              }
-              return null;
-            },
+            validator: (value) => Validators.validateConfirmPassword(
+              value,
+              _passwordController.text,
+            ),
           ),
           const SizedBox(height: 8),
           _buildStudentTypeSelector(),

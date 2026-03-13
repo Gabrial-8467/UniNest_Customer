@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../services/api_service.dart';
+import '../../../services/auth_service.dart';
+import '../../../utils/utils.dart';
 
 import 'help_support.dart';
 import 'order_history.dart';
@@ -17,15 +19,108 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _imagePicker = ImagePicker();
-  final Map<String, dynamic> userData = {
-    'name': 'John Doe',
-    'email': 'john.doe@campus.edu',
-    'phone': '+1 234 567 8900',
-    'avatar': 'https://picsum.photos/seed/avatar1/200/200.jpg',
-  };
+  Map<String, dynamic>? userData;
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    debugPrint('🔄 Starting profile load...');
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      // Get token from AuthService
+      final token = await AuthService.getToken();
+      debugPrint(
+        '🔑 Retrieved token: ${token != null ? "Found" : "Not found"}',
+      );
+
+      if (token == null || token.isEmpty) {
+        debugPrint('❌ No token available');
+        setState(() {
+          errorMessage = 'No authentication token found. Please login again.';
+          isLoading = false;
+        });
+        return;
+      }
+
+      debugPrint('📡 Calling API service...');
+
+      final response = await ApiService.getUserProfile(token);
+
+      debugPrint('📊 API response: $response');
+
+      if (response['success'] == true) {
+        debugPrint('✅ Profile loaded successfully');
+        setState(() {
+          userData = response['data'];
+          isLoading = false;
+        });
+      } else {
+        debugPrint('❌ Profile load failed: ${response['error']}');
+        setState(() {
+          errorMessage = response['error'] ?? 'Failed to load profile';
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('💥 Profile load exception: $e');
+      setState(() {
+        errorMessage = 'Network error: ${e.toString()}';
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF8F9FA),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFFFF6B6B)),
+        ),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: _buildAppBar(),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                errorMessage!,
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loadUserProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B6B),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: _buildAppBar(),
@@ -98,7 +193,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Stack(
                   children: [
                     Image.network(
-                      userData['avatar'],
+                      userData?['avatar'] ??
+                          'https://picsum.photos/seed/default/200/200.jpg',
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
                         color: const Color(0xFFFF6B6B),
@@ -129,7 +225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 14),
           Text(
-            userData['name'],
+            userData?['name'] ?? userData?['fullName'] ?? 'Unknown User',
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -138,7 +234,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            userData['email'],
+            userData?['email'] ?? 'No email',
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
         ],
@@ -383,39 +479,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (pickedFile != null) {
-        if (mounted) {
+        if (mounted && userData != null) {
           setState(() {
-            userData['avatar'] = pickedFile.path;
+            userData!['avatar'] = pickedFile.path;
           });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile photo updated successfully!'),
-              backgroundColor: Color(0xFFFF6B6B),
-              duration: Duration(seconds: 2),
-            ),
+          Helpers.showSuccessSnackBar(
+            context,
+            'Profile photo updated successfully!',
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to update profile photo. Please try again.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
-          ),
+        Helpers.showErrorSnackBar(
+          context,
+          'Failed to update profile photo. Please try again.',
         );
       }
     }
   }
 
   void _showComingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Feature coming soon!'),
-        backgroundColor: Color(0xFFFF6B6B),
-      ),
+    Helpers.showSnackBar(
+      context,
+      'Feature coming soon!',
+      backgroundColor: Color(AppConstants.primaryColorValue),
     );
   }
 
@@ -434,7 +523,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () async {
               final navigator = Navigator.of(context);
               Navigator.pop(context);
-              await ApiService.logout();
+              await AuthService.logout();
               navigator.pushNamedAndRemoveUntil('/login', (route) => false);
             },
             child: const Text('Logout'),
@@ -445,9 +534,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showEditProfileDialog() {
-    final nameController = TextEditingController(text: userData['name']);
-    final emailController = TextEditingController(text: userData['email']);
-    final phoneController = TextEditingController(text: userData['phone']);
+    final nameController = TextEditingController(
+      text: userData?['name'] ?? userData?['fullName'] ?? '',
+    );
+    final emailController = TextEditingController(
+      text: userData?['email'] ?? '',
+    );
+    final phoneController = TextEditingController(
+      text: userData?['phone'] ?? '',
+    );
 
     showDialog(
       context: context,
@@ -480,13 +575,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                userData['name'] = nameController.text.trim();
-                userData['email'] = emailController.text.trim();
-                userData['phone'] = phoneController.text.trim();
-              });
+            onPressed: () async {
+              if (userData != null) {
+                setState(() {
+                  userData!['name'] = nameController.text.trim();
+                  userData!['email'] = emailController.text.trim();
+                  userData!['phone'] = phoneController.text.trim();
+                });
+              }
               Navigator.pop(context);
+
+              Helpers.showSuccessSnackBar(
+                context,
+                'Profile updated successfully!',
+              );
             },
             child: const Text('Save'),
           ),
