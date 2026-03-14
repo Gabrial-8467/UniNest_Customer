@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -164,16 +165,69 @@ class ApiService {
     }
   }
 
-  static Future<bool> testConnection() async {
+  static Future<Map<String, dynamic>> getCanteens() async {
     try {
+      debugPrint('🔍 Fetching canteens...');
+      debugPrint('📍 URL: ${AppConfig.baseUrl}/api/canteens');
+
       final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.productsEndpoint}'),
+        Uri.parse('${AppConfig.baseUrl}/api/canteens'),
         headers: {'Content-Type': 'application/json'},
       );
 
-      return response.statusCode == 200;
+      debugPrint('📡 Canteens response status: ${response.statusCode}');
+      debugPrint('📄 Canteens response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        if (responseData['success'] == true) {
+          debugPrint('✅ Canteens data received: ${responseData['data']}');
+          return {'success': true, 'data': responseData['data']};
+        } else {
+          debugPrint('❌ Canteens API returned success: false');
+          return {
+            'success': false,
+            'error': responseData['error'] ?? 'Canteens fetch failed',
+          };
+        }
+      } else {
+        debugPrint(
+          '❌ Canteens fetch failed with status: ${response.statusCode}',
+        );
+        return {
+          'success': false,
+          'error': 'Failed to get canteens (Status: ${response.statusCode})',
+        };
+      }
     } catch (e) {
-      debugPrint('Connection test failed: $e');
+      debugPrint('💥 Canteens fetch error: $e');
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<bool> testConnection() async {
+    try {
+      debugPrint('🔍 Testing connection to backend...');
+      final response = await http
+          .get(
+            Uri.parse('${AppConfig.baseUrl}${AppConfig.productsEndpoint}'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(
+            Duration(seconds: AppConfig.connectionTimeout.inSeconds),
+            onTimeout: () {
+              debugPrint('⏰ Connection test timed out');
+              throw Exception('Connection timeout');
+            },
+          );
+
+      final isConnected = response.statusCode == 200;
+      debugPrint(
+        '📡 Connection test result: ${isConnected ? "Connected" : "Failed"}',
+      );
+      return isConnected;
+    } catch (e) {
+      debugPrint('💥 Connection test failed: $e');
       return false;
     }
   }

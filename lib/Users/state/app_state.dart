@@ -7,16 +7,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/api_service.dart';
 import '../../../utils/utils.dart';
-import '../../../utils/constants.dart';
 
 class CampusAppState extends ChangeNotifier {
   CampusAppState() {
-    _canteens.addAll(kRegisteredCanteens);
     _restoreCartFromStorage();
     _restoreFavoritesFromStorage();
     _restoreOrdersFromStorage();
     _startStatusUpdateTimer();
     _fetchProductsFromBackend();
+    _fetchCanteensFromBackend();
+    _fetchCategoriesFromBackend();
   }
 
   @override
@@ -27,12 +27,21 @@ class CampusAppState extends ChangeNotifier {
 
   final List<Map<String, dynamic>> _canteens = [];
   final List<Map<String, dynamic>> _products = [];
+  final List<String> _categories = [];
   final List<Map<String, dynamic>> _cartItems = [];
   final List<Map<String, dynamic>> _orderHistory = [];
   Timer? _statusUpdateTimer;
   bool _isLoadingProducts = false;
+  bool _isLoadingCanteens = false;
+  bool _isLoadingCategories = false;
+  bool _hasConnectionError = false;
+  String _errorMessage = '';
 
   bool get isLoadingProducts => _isLoadingProducts;
+  bool get isLoadingCanteens => _isLoadingCanteens;
+  bool get isLoadingCategories => _isLoadingCategories;
+  bool get hasConnectionError => _hasConnectionError;
+  String get errorMessage => _errorMessage;
 
   // Fetch products from backend API
   Future<void> _fetchProductsFromBackend() async {
@@ -72,17 +81,19 @@ class CampusAppState extends ChangeNotifier {
         debugPrint(
           '✅ AppState: Loaded ${_products.length} products from backend',
         );
+        _hasConnectionError = false;
+        _errorMessage = '';
       } else {
         debugPrint(
           '❌ AppState: Failed to fetch products: ${response['error']}',
         );
-        // Fallback to mock data if backend fails
-        _products.addAll(kCatalogProducts);
+        _hasConnectionError = true;
+        _errorMessage = response['error'] ?? 'Failed to load products';
       }
     } catch (e) {
       debugPrint('💥 AppState: Error fetching products: $e');
-      // Fallback to mock data on error
-      _products.addAll(kCatalogProducts);
+      _hasConnectionError = true;
+      _errorMessage = 'Network error. Please check your connection.';
     } finally {
       _isLoadingProducts = false;
       notifyListeners();
@@ -94,11 +105,155 @@ class CampusAppState extends ChangeNotifier {
     await _fetchProductsFromBackend();
   }
 
+  // Public method to refresh canteens
+  Future<void> refreshCanteens() async {
+    await _fetchCanteensFromBackend();
+  }
+
+  // Public method to refresh all data
+  Future<void> refreshAllData() async {
+    await Future.wait([
+      _fetchProductsFromBackend(),
+      _fetchCanteensFromBackend(),
+      _fetchCategoriesFromBackend(),
+    ]);
+  }
+
+  // Test backend connection
+  Future<bool> testBackendConnection() async {
+    return await ApiService.testConnection();
+  }
+
+  // Fetch categories from backend API
+  Future<void> _fetchCategoriesFromBackend() async {
+    _isLoadingCategories = true;
+    notifyListeners();
+
+    try {
+      debugPrint('🔍 AppState: Fetching categories from backend...');
+
+      // Extract categories from products since there's no separate categories endpoint
+      if (_products.isNotEmpty) {
+        final Set<String> uniqueCategories = {};
+        for (final product in _products) {
+          final category = (product['category'] ?? '').toString();
+          if (category.isNotEmpty) {
+            uniqueCategories.add(category);
+          }
+        }
+
+        _categories.clear();
+        _categories.addAll(uniqueCategories.toList()..sort());
+        debugPrint(
+          '✅ AppState: Loaded ${_categories.length} categories from products',
+        );
+      } else {
+        // If no products, try to fetch categories from products endpoint
+        final response = await ApiService.getProducts();
+        if (response['success'] == true) {
+          final List<dynamic> productsData = response['data'];
+          final Set<String> uniqueCategories = {};
+
+          for (final product in productsData) {
+            if (product is Map<String, dynamic>) {
+              final category = (product['category'] ?? '').toString();
+              if (category.isNotEmpty) {
+                uniqueCategories.add(category);
+              }
+            }
+          }
+
+          _categories.clear();
+          _categories.addAll(uniqueCategories.toList()..sort());
+          debugPrint(
+            '✅ AppState: Loaded ${_categories.length} categories from backend',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('💥 AppState: Error fetching categories: $e');
+      // Set default categories if backend fails
+      _categories.clear();
+      _categories.addAll([
+        'All',
+        'Burgers',
+        'Pizza',
+        'Drinks',
+        'Desserts',
+        'Snacks',
+      ]);
+    } finally {
+      _isLoadingCategories = false;
+      notifyListeners();
+    }
+  }
+
+  // Fetch canteens from backend API
+  Future<void> _fetchCanteensFromBackend() async {
+    _isLoadingCanteens = true;
+    _hasConnectionError = false;
+    _errorMessage = '';
+    notifyListeners();
+
+    try {
+      debugPrint('🔍 AppState: Fetching canteens from backend...');
+
+      final response = await ApiService.getCanteens();
+
+      if (response['success'] == true) {
+        final List<dynamic> canteensData = response['data'];
+        _canteens.clear();
+
+        for (final canteen in canteensData) {
+          if (canteen is Map<String, dynamic>) {
+            // Convert backend canteen format to app format
+            final appCanteen = {
+              'id':
+                  canteen['_id']?.toString() ?? canteen['id']?.toString() ?? '',
+              'name': canteen['name'] ?? '',
+              'location': canteen['location'] ?? '',
+              'rating': (canteen['rating'] as num?)?.toDouble() ?? 0.0,
+              'reviewCount': (canteen['reviewCount'] as num?)?.toInt() ?? 0,
+              'isOpen': canteen['isOpen'] ?? true,
+              'imageUrl': canteen['image'] ?? canteen['imageUrl'] ?? '',
+              'description': canteen['description'] ?? '',
+              'openingTime': canteen['openingTime'] ?? '08:00',
+              'closingTime': canteen['closingTime'] ?? '20:00',
+            };
+            _canteens.add(appCanteen);
+          }
+        }
+
+        debugPrint(
+          '✅ AppState: Loaded ${_canteens.length} canteens from backend',
+        );
+        _hasConnectionError = false;
+        _errorMessage = '';
+      } else {
+        debugPrint(
+          '❌ AppState: Failed to fetch canteens: ${response['error']}',
+        );
+        _hasConnectionError = true;
+        _errorMessage = response['error'] ?? 'Failed to load canteens';
+      }
+    } catch (e) {
+      debugPrint('💥 AppState: Error fetching canteens: $e');
+      _hasConnectionError = true;
+      _errorMessage = 'Failed to load canteens from backend';
+    } finally {
+      _isLoadingCanteens = false;
+      notifyListeners();
+    }
+  }
+
   UnmodifiableListView<Map<String, dynamic>> get canteens =>
       UnmodifiableListView(_canteens);
 
   UnmodifiableListView<Map<String, dynamic>> get products =>
       UnmodifiableListView(_products);
+
+  UnmodifiableListView<String> get categories =>
+      UnmodifiableListView(_categories);
 
   UnmodifiableListView<Map<String, dynamic>> get cartItems =>
       UnmodifiableListView(_cartItems);

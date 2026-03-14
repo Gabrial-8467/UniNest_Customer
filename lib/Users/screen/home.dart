@@ -6,6 +6,7 @@ import '../widgets/product_card.dart';
 import 'all_canteens.dart';
 import 'canteen_menu.dart';
 import 'product_details.dart';
+import 'secret_signature_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onOpenCart;
@@ -22,14 +23,69 @@ class _HomeScreenState extends State<HomeScreen> {
   String selectedCanteenId = 'All';
   String searchQuery = '';
 
-  final List<_CategoryOption> categories = const [
-    _CategoryOption(label: 'All', icon: Icons.grid_view_rounded),
-    _CategoryOption(label: 'Burgers', icon: Icons.lunch_dining_rounded),
-    _CategoryOption(label: 'Pizza', icon: Icons.local_pizza_rounded),
-    _CategoryOption(label: 'Drinks', icon: Icons.local_cafe_rounded),
-    _CategoryOption(label: 'Desserts', icon: Icons.icecream_rounded),
-    _CategoryOption(label: 'Snacks', icon: Icons.fastfood_rounded),
-  ];
+  // Secret signature screen variables
+  int _tapCount = 0;
+  DateTime? _lastTapTime;
+  static const int _requiredTaps = 5;
+  static const Duration _tapTimeWindow = Duration(seconds: 2);
+
+  // Icon mapping for categories
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'burgers':
+        return Icons.lunch_dining_rounded;
+      case 'pizza':
+        return Icons.local_pizza_rounded;
+      case 'drinks':
+        return Icons.local_cafe_rounded;
+      case 'desserts':
+        return Icons.icecream_rounded;
+      case 'snacks':
+        return Icons.fastfood_rounded;
+      default:
+        return Icons.grid_view_rounded;
+    }
+  }
+
+  // Secret signature screen logic
+  void _onLogoTap() {
+    final now = DateTime.now();
+
+    // Reset tap count if too much time has passed
+    if (_lastTapTime == null ||
+        now.difference(_lastTapTime!) > _tapTimeWindow) {
+      _tapCount = 1;
+    } else {
+      _tapCount++;
+    }
+
+    _lastTapTime = now;
+
+    // Check if secret sequence is completed
+    if (_tapCount >= _requiredTaps) {
+      _tapCount = 0;
+      _lastTapTime = null;
+      _showSecretSignatureScreen();
+    }
+  }
+
+  void _showSecretSignatureScreen() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const SecretSignatureScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: animation.drive(
+              Tween(begin: const Offset(0, 1), end: Offset.zero),
+            ),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 500),
+      ),
+    );
+  }
 
   List<Map<String, dynamic>> _filteredCanteens(
     List<Map<String, dynamic>> canteens,
@@ -97,28 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final text = '$name $description';
-
-    switch (selectedCategory) {
-      case 'Burgers':
-        return text.contains('burger');
-      case 'Pizza':
-        return text.contains('pizza');
-      case 'Drinks':
-        return text.contains('shake') ||
-            text.contains('coffee') ||
-            text.contains('drink');
-      case 'Desserts':
-        return text.contains('ice cream') ||
-            text.contains('sundae') ||
-            text.contains('dessert');
-      case 'Snacks':
-        return text.contains('fries') ||
-            text.contains('wings') ||
-            text.contains('sandwich') ||
-            text.contains('snack');
-      default:
-        return true;
-    }
+    return text.toLowerCase().contains(selectedCategory.toLowerCase());
   }
 
   @override
@@ -139,25 +174,34 @@ class _HomeScreenState extends State<HomeScreen> {
         return Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),
           appBar: _buildAppBar(appState),
-          body: Column(
-            children: [
-              _buildSearchBar(),
-              _buildCategories(),
-              Expanded(
-                child: CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(child: _buildCanteenSection(canteens)),
-                    if (products.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _buildEmptyProductsState(),
-                      )
-                    else
-                      _buildProductsSliver(appState, products),
-                  ],
-                ),
-              ),
-            ],
+          body: RefreshIndicator(
+            onRefresh: () async {
+              await appState.refreshAllData();
+            },
+            color: const Color(0xFFFF6B6B),
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: _buildSearchBar()),
+                SliverToBoxAdapter(child: _buildCategories()),
+                if (appState.hasConnectionError)
+                  SliverToBoxAdapter(
+                    child: _buildErrorBanner(appState.errorMessage),
+                  ),
+                if (appState.isLoadingProducts ||
+                    appState.isLoadingCanteens ||
+                    appState.isLoadingCategories)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFFF6B6B),
+                      ),
+                    ),
+                  )
+                else
+                  ..._buildMainContent(appState, canteens, products),
+              ],
+            ),
           ),
         );
       },
@@ -168,26 +212,33 @@ class _HomeScreenState extends State<HomeScreen> {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF6B6B),
-              borderRadius: BorderRadius.circular(8),
+      title: GestureDetector(
+        onTap: _onLogoTap,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF6B6B),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.restaurant_menu,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
-            child: const Icon(Icons.restaurant, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 12),
-          const Text(
-            'Campus Eats',
-            style: TextStyle(
-              color: Color(0xFF2D3436),
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+            const SizedBox(width: 12),
+            const Text(
+              'Campus Eats',
+              style: TextStyle(
+                color: Color(0xFF2D3436),
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -228,77 +279,148 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCategories() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Categories',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2D3436),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                final isSelected = category.label == selectedCategory;
+    return AnimatedBuilder(
+      animation: AppStateScope.of(context),
+      builder: (context, _) {
+        final appState = AppStateScope.of(context);
+        final categories = ['All', ...appState.categories];
 
-                return InkWell(
-                  borderRadius: BorderRadius.circular(24),
-                  onTap: () {
-                    setState(() {
-                      selectedCategory = category.label;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFFFF6B6B)
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFFFF6B6B)
-                            : Colors.grey[300]!,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          category.icon,
-                          size: 16,
-                          color: isSelected
-                              ? Colors.white
-                              : const Color(0xFF2D3436),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          category.label,
-                          style: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF2D3436),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Categories',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D3436),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 44,
+                child: appState.isLoadingCategories
+                    ? const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFFFF6B6B),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                      )
+                    : ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: categories.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final category = categories[index];
+                          final isSelected = category == selectedCategory;
+
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onTap: () {
+                              setState(() {
+                                selectedCategory = category;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFFFF6B6B)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFFFF6B6B)
+                                      : Colors.grey[300]!,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _getCategoryIcon(category),
+                                    size: 16,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFF2D3436),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    category,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : const Color(0xFF2D3436),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildMainContent(
+    CampusAppState appState,
+    List<Map<String, dynamic>> canteens,
+    List<Map<String, dynamic>> products,
+  ) {
+    return [
+      SliverToBoxAdapter(
+        child: _buildCanteenSection(canteens, appState.isLoadingCanteens),
+      ),
+      if (products.isEmpty && !appState.isLoadingProducts)
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _buildEmptyState(
+            'No products available',
+            'Connect to backend to load products',
+          ),
+        )
+      else
+        _buildProductsSliver(appState, products),
+    ];
+  }
+
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3CD),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFFEAA7)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Color(0xFF856404),
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: Color(0xFF856404), fontSize: 14),
             ),
           ),
         ],
@@ -306,7 +428,52 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCanteenSection(List<Map<String, dynamic>> canteens) {
+  Widget _buildEmptyState(String title, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D3436),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final appState = AppStateScope.of(context);
+                await appState.refreshAllData();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6B6B),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCanteenSection(
+    List<Map<String, dynamic>> canteens,
+    bool isLoadingCanteens,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Column(
@@ -362,9 +529,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     border: Border.all(color: Colors.grey[300]!),
                   ),
                   alignment: Alignment.center,
-                  child: Text(
-                    'No canteens found for this search.',
-                    style: TextStyle(color: Colors.grey[600]),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.storefront_outlined,
+                        color: Colors.grey,
+                        size: 24,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'No canteens available',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ],
                   ),
                 )
               : SizedBox(
@@ -455,35 +633,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildEmptyProductsState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.search_off_rounded, size: 64, color: Colors.grey),
-            const SizedBox(height: 12),
-            const Text(
-              'No matching items',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3436),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Try another product, canteen, or category.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showAddToCartSnackbar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -501,11 +650,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-}
-
-class _CategoryOption {
-  final String label;
-  final IconData icon;
-
-  const _CategoryOption({required this.label, required this.icon});
 }

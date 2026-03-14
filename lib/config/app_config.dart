@@ -12,7 +12,7 @@ class AppConfig {
   // - The IP should look like: 192.168.1.x or 10.0.0.x
 
   // Default configuration for physical device
-  static const String _baseUrl = 'http://192.168.1.5:5000';
+  static const String _baseUrl = 'http://192.168.1.18:5000';
 
   // Alternative configurations (uncomment and modify as needed)
   // static const String _baseUrl = 'http://10.0.2.2:5000'; // For Android emulator
