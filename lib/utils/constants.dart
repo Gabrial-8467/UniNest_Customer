@@ -60,7 +60,7 @@ class AppConstants {
   static const List<String> paymentMethods = ['cash', 'card', 'upi', 'wallet'];
 
   // User Types
-  static const List<String> userTypes = ['customer', 'vendor'];
+  static const List<String> userTypes = ['customer'];
 
   // Student Types
   static const List<String> studentTypes = ['hostler', 'day_scholar'];

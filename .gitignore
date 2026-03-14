@@ -33,6 +33,40 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Security - Sensitive files that should never be committed
+*.env
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.p7b
+*.der
+*.cer
+*.jks
+*.keystore
+*.properties
+*.config
+*.secret
+*.private
+*.auth
+*.token
+*.credentials
+.env.*
+
+# Lib directory specific sensitive files
+lib/**/*.env
+lib/**/*.key
+lib/**/*.pem
+lib/**/*.secret
+lib/**/*.private
+lib/**/*.auth
+lib/**/*.token
+lib/**/*.credentials
+lib/**/config/secrets.dart
+lib/**/config/api_keys.dart
+lib/**/config/private_keys.dart
+
 # Symbolication related
 app.*.symbols
 

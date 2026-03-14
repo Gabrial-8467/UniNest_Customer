@@ -314,8 +314,6 @@ class _SignupScreenState extends State<SignupScreen>
           _buildSignupButton(),
           const SizedBox(height: 16),
           _buildLoginLink(),
-          const SizedBox(height: 16),
-          _buildVendorLoginButton(),
         ],
       ),
     );
@@ -447,58 +445,6 @@ class _SignupScreenState extends State<SignupScreen>
       child: const Text(
         "Already have an account? Login",
         style: TextStyle(color: Color(0xFFFF6B6B)),
-      ),
-    );
-  }
-
-  Widget _buildVendorLoginButton() {
-    return Container(
-      width: double.infinity,
-      height: 50,
-      decoration: BoxDecoration(
-        color: const Color(0xFF2D3436),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF2D3436).withValues(alpha: 0.2),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2D3436).withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () {
-            // Vendor login logic - navigate to vendor login screen
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Vendor registration coming soon!'),
-                backgroundColor: Color(0xFF2D3436),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.store_outlined, size: 24, color: Colors.white),
-              const SizedBox(width: 12),
-              const Text(
-                'Register as Vendor',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
