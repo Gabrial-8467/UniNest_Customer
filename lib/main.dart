@@ -5,8 +5,14 @@ import 'Users/screen/auth/signup_screen.dart';
 import 'Users/screen/main_navigation_screen.dart';
 import 'Users/state/app_state.dart';
 import 'splash_screen.dart';
+import 'config/app_config.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize secure configuration
+  await AppConfig.initialize();
+
   runApp(const MyApp());
 }
 

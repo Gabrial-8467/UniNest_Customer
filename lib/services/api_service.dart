@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import 'auth_service.dart';
+import '../utils/secure_logger.dart';
 
 class ApiService {
   // Authentication methods
@@ -15,20 +16,39 @@ class ApiService {
     String? studentType,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.registerEndpoint}'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
+      final response = await http
+          .post(
+            Uri.parse(
+              '${AppConfig.getSecureBaseUrl()}${AppConfig.registerEndpoint}',
+            ),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'fullName': fullName,
+              'email': email,
+              'password': password,
+              'userType': userType,
+              'studentType': studentType,
+            }),
+          )
+          .timeout(AppConfig.connectionTimeout);
+
+      SecureLogger.logRequest(
+        'POST',
+        '${AppConfig.getSecureBaseUrl()}${AppConfig.registerEndpoint}',
+        body: {
           'fullName': fullName,
           'email': email,
-          'password': password,
+          'password': '[REDACTED]',
           'userType': userType,
           'studentType': studentType,
-        }),
+        },
       );
 
-      debugPrint('🔥 Register response status: ${response.statusCode}');
-      debugPrint('🔥 Register response body: ${response.body}');
+      SecureLogger.logResponse(
+        response.statusCode,
+        '${AppConfig.getSecureBaseUrl()}${AppConfig.registerEndpoint}',
+        body: response.body,
+      );
 
       final responseData = jsonDecode(response.body);
 
@@ -50,14 +70,27 @@ class ApiService {
     required String password,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.loginEndpoint}'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
+      final response = await http
+          .post(
+            Uri.parse(
+              '${AppConfig.getSecureBaseUrl()}${AppConfig.loginEndpoint}',
+            ),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'password': password}),
+          )
+          .timeout(AppConfig.connectionTimeout);
+
+      SecureLogger.logRequest(
+        'POST',
+        '${AppConfig.getSecureBaseUrl()}${AppConfig.loginEndpoint}',
+        body: {'email': email, 'password': '[REDACTED]'},
       );
 
-      debugPrint('🔥 Login response status: ${response.statusCode}');
-      debugPrint('🔥 Login response body: ${response.body}');
+      SecureLogger.logResponse(
+        response.statusCode,
+        '${AppConfig.getSecureBaseUrl()}${AppConfig.loginEndpoint}',
+        body: response.body,
+      );
 
       final responseData = jsonDecode(response.body);
 
@@ -75,7 +108,7 @@ class ApiService {
         };
       }
     } catch (e) {
-      debugPrint('❌ Login network error: $e');
+      SecureLogger.error('Login network error', error: e);
       return {'success': false, 'error': 'Network error: ${e.toString()}'};
     }
   }

@@ -1,35 +1,85 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../utils/secure_logger.dart';
 
 class AppConfig {
   // Environment configuration
-  static const bool isDebugMode = true;
+  static bool get isDebugMode => kDebugMode;
+  static bool get isReleaseMode => kReleaseMode;
 
-  // API Configuration
-  // For physical device testing, use your computer's local IP address
-  // To find your IP:
-  // - Windows: ipconfig in command prompt
-  // - Mac: ifconfig or ip a in terminal
-  // - The IP should look like: 192.168.1.x or 10.0.0.x
-
-  // Default configuration for physical device
-  static const String _baseUrl = 'http://192.168.1.18:5000';
-
-  // Alternative configurations (uncomment and modify as needed)
-  // static const String _baseUrl = 'http://10.0.2.2:5000'; // For Android emulator
-  // static const String _baseUrl = 'http://127.0.0.1:5000'; // For iOS simulator
-  // static const String _baseUrl = 'http://localhost:5000'; // For development/testing
-  // static const String _baseUrl = 'https://your-production-api.com'; // For production
-
-  static String get baseUrl {
-    if (isDebugMode) {
-      return _baseUrl;
+  // Initialize environment variables
+  static Future<void> initialize() async {
+    try {
+      await dotenv.load(fileName: ".env");
+    } catch (e) {
+      if (isDebugMode) {
+        SecureLogger.warning('Could not load .env file: $e');
+      }
+      // Fallback to default values
     }
-    return _baseUrl; // Change to production URL when ready
   }
 
-  // Network timeout settings - reduced for faster response
-  static const Duration connectionTimeout = Duration(seconds: 5);
-  static const Duration receiveTimeout = Duration(seconds: 5);
+  // API Configuration
+  static String get baseUrl {
+    final envUrl = dotenv.env['API_BASE_URL'];
+    if (envUrl != null && envUrl.isNotEmpty) {
+      return envUrl;
+    }
+
+    // Fallback for development
+    if (isDebugMode) {
+      return 'http://192.168.1.18:5000';
+    }
+
+    // Production fallback
+    return 'https://your-production-api.com';
+  }
+
+  // Security Settings
+  static bool get enforceHttps {
+    final enforce = dotenv.env['ENFORCE_HTTPS'];
+    if (enforce != null) {
+      return enforce.toLowerCase() == 'true';
+    }
+    return !isDebugMode; // Enforce HTTPS in release mode
+  }
+
+  static int get connectionTimeoutSeconds {
+    final timeout = dotenv.env['API_TIMEOUT_SECONDS'];
+    return timeout != null ? int.tryParse(timeout) ?? 30 : 30;
+  }
+
+  // Feature Flags
+  static bool get enableDebugLogging {
+    final enable = dotenv.env['ENABLE_DEBUG_LOGGING'];
+    if (enable != null) {
+      return enable.toLowerCase() == 'true';
+    }
+    return isDebugMode;
+  }
+
+  static bool get enableAnalytics {
+    final enable = dotenv.env['ENABLE_ANALYTICS'];
+    if (enable != null) {
+      return enable.toLowerCase() == 'true';
+    }
+    return isReleaseMode;
+  }
+
+  // Security Keys
+  static String get encryptionKey {
+    return dotenv.env['ENCRYPTION_KEY'] ?? '';
+  }
+
+  static String get jwtSecret {
+    return dotenv.env['JWT_SECRET'] ?? '';
+  }
+
+  // Network timeout settings
+  static Duration get connectionTimeout =>
+      Duration(seconds: connectionTimeoutSeconds);
+  static Duration get receiveTimeout =>
+      Duration(seconds: connectionTimeoutSeconds);
 
   // API endpoints
   static const String loginEndpoint = '/api/auth/login';
@@ -42,16 +92,38 @@ class AppConfig {
   static const String adminUsersEndpoint = '/api/admin/users';
   static const String adminOrdersEndpoint = '/api/admin/orders';
 
-  // Helper method to validate IP configuration
+  // Helper method to validate and secure URL
   static String validateAndGetBaseUrl() {
-    final url = baseUrl;
-    if (url.contains('localhost') || url.contains('127.0.0.1')) {
-      debugPrint(
+    String url = baseUrl;
+
+    // Enforce HTTPS in production if enabled
+    if (enforceHttps && url.startsWith('http://')) {
+      url = url.replaceFirst('http://', 'https://');
+    }
+
+    if (isDebugMode &&
+        (url.contains('localhost') || url.contains('127.0.0.1'))) {
+      SecureLogger.warning(
         '⚠️ WARNING: Using localhost/127.0.0.1. This won\'t work on physical devices!',
       );
-      debugPrint(
+      SecureLogger.warning(
         'Please change to your computer\'s local IP address (e.g., 192.168.1.x)',
       );
+    }
+
+    return url;
+  }
+
+  // Validate if URL is secure
+  static bool isSecureUrl(String url) {
+    return url.startsWith('https://');
+  }
+
+  // Get secure base URL
+  static String getSecureBaseUrl() {
+    final url = validateAndGetBaseUrl();
+    if (enforceHttps && !isSecureUrl(url)) {
+      throw Exception('Insecure URL detected. HTTPS is required.');
     }
     return url;
   }

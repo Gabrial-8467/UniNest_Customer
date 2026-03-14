@@ -11,11 +11,11 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # build by specifying --build-name and --build-number, respectively.
 # In Android, build-name is used as versionName while build-number used as versionCode.
 # Read more about Android versioning at https://developer.android.com/studio/publish/versioning
-# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
-# of the product and file versions while build-number is used as the build suffix.
+# of the product and file versions while build-number used as the build suffix.
 version: 1.0.0+1
 
 environment:
@@ -38,6 +38,9 @@ dependencies:
   shared_preferences: ^2.3.2
   image_picker: ^1.1.2
   http: ^1.2.1
+  flutter_secure_storage: ^9.0.0
+  flutter_dotenv: ^5.1.0
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +63,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Assets for environment variables
+  assets:
+    - .env
 
   # To add assets to your application, add an assets section, like this:
   # assets:
