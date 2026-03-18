@@ -70,10 +70,10 @@ class _SignupScreenState extends State<SignupScreen>
           '🔥 Attempting signup with: ${_emailController.text.trim()}',
         );
         final result = await ApiService.register(
+          name: _nameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text,
-          fullName: _nameController.text.trim(),
-          userType: 'customer',
+          role: 'customer',
           studentType: _studentType,
         );
 
@@ -188,7 +188,7 @@ class _SignupScreenState extends State<SignupScreen>
 
   Widget _buildHeaderCard() {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -204,37 +204,16 @@ class _SignupScreenState extends State<SignupScreen>
         children: [
           Hero(
             tag: 'logo',
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFFF6B6B),
-                    const Color(0xFFFF8E8E),
-                    const Color(0xFFFFA8A8),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(50),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.restaurant_menu,
-                size: 60,
-                color: Colors.white,
-              ),
+            child: Image.asset(
+              'assets/uninest.jpeg',
+              width: 150,
+              height: 150,
+              fit: BoxFit.cover,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           const Text(
-            'Create Account',
+            'Join UniNest',
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.w800,
@@ -244,7 +223,7 @@ class _SignupScreenState extends State<SignupScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Join us and start ordering \n delicious food!',
+            'Join UniNest and start your \n campus living experience!',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[600],

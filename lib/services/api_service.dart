@@ -4,472 +4,594 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import 'auth_service.dart';
-import '../utils/secure_logger.dart';
 
 class ApiService {
-  // Authentication methods
-  static Future<Map<String, dynamic>> register({
-    required String email,
-    required String password,
-    required String fullName,
-    String userType = 'customer', // Default user type
-    String? studentType,
+  static const String _baseUrl = 'http://192.168.1.7:5000/api/v1';
+
+  // Common headers
+  static Map<String, String> _getHeaders({String? token}) {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+
+    return headers;
+  }
+
+  // Helper method for HTTP requests
+  static Future<Map<String, dynamic>> _makeRequest({
+    required String method,
+    required String endpoint,
+    Map<String, dynamic>? body,
+    String? token,
+    Map<String, String>? queryParams,
   }) async {
     try {
-      final response = await http
-          .post(
-            Uri.parse(
-              '${AppConfig.getSecureBaseUrl()}${AppConfig.registerEndpoint}',
-            ),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'fullName': fullName,
-              'email': email,
-              'password': password,
-              'userType': userType,
-              'studentType': studentType,
-            }),
-          )
-          .timeout(AppConfig.connectionTimeout);
+      Uri uri;
+      if (queryParams != null && queryParams.isNotEmpty) {
+        uri = Uri.parse(
+          '$_baseUrl$endpoint',
+        ).replace(queryParameters: queryParams);
+      } else {
+        uri = Uri.parse('$_baseUrl$endpoint');
+      }
 
-      SecureLogger.logRequest(
-        'POST',
-        '${AppConfig.getSecureBaseUrl()}${AppConfig.registerEndpoint}',
-        body: {
-          'fullName': fullName,
-          'email': email,
-          'password': '[REDACTED]',
-          'userType': userType,
-          'studentType': studentType,
-        },
-      );
+      debugPrint('🔍 API Request: $method $uri');
+      if (body != null) {
+        debugPrint('📤 Request Body: ${_sanitizeLogData(body)}');
+      }
 
-      SecureLogger.logResponse(
-        response.statusCode,
-        '${AppConfig.getSecureBaseUrl()}${AppConfig.registerEndpoint}',
-        body: response.body,
-      );
+      http.Response response;
+
+      switch (method.toUpperCase()) {
+        case 'GET':
+          response = await http
+              .get(uri, headers: _getHeaders(token: token))
+              .timeout(AppConfig.connectionTimeout);
+          break;
+        case 'POST':
+          response = await http
+              .post(
+                uri,
+                headers: _getHeaders(token: token),
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(AppConfig.connectionTimeout);
+          break;
+        case 'PUT':
+          response = await http
+              .put(
+                uri,
+                headers: _getHeaders(token: token),
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(AppConfig.connectionTimeout);
+          break;
+        case 'PATCH':
+          response = await http
+              .patch(
+                uri,
+                headers: _getHeaders(token: token),
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(AppConfig.connectionTimeout);
+          break;
+        case 'DELETE':
+          response = await http
+              .delete(uri, headers: _getHeaders(token: token))
+              .timeout(AppConfig.connectionTimeout);
+          break;
+        default:
+          throw Exception('Unsupported HTTP method: $method');
+      }
+
+      debugPrint('📡 Response Status: ${response.statusCode}');
+      debugPrint('📄 Response Body: ${response.body}');
 
       final responseData = jsonDecode(response.body);
 
-      if (response.statusCode == 201 && responseData['success'] == true) {
-        return {'success': true, 'data': responseData['data']};
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'data': responseData['data'] ?? responseData,
+          'message': responseData['message'] ?? 'Success',
+        };
       } else {
         return {
           'success': false,
-          'error': responseData['error'] ?? 'Registration failed',
+          'error':
+              responseData['error'] ??
+              responseData['message'] ??
+              'Request failed',
+          'statusCode': response.statusCode,
         };
       }
     } catch (e) {
+      debugPrint('💥 API Error: $e');
       return {'success': false, 'error': 'Network error: ${e.toString()}'};
     }
+  }
+
+  // Sanitize sensitive data for logging
+  static Map<String, dynamic> _sanitizeLogData(Map<String, dynamic> data) {
+    final sanitized = Map<String, dynamic>.from(data);
+    if (sanitized.containsKey('password')) {
+      sanitized['password'] = '[REDACTED]';
+    }
+    if (sanitized.containsKey('currentPassword')) {
+      sanitized['currentPassword'] = '[REDACTED]';
+    }
+    if (sanitized.containsKey('newPassword')) {
+      sanitized['newPassword'] = '[REDACTED]';
+    }
+    return sanitized;
+  }
+
+  // ==================== AUTHENTICATION ENDPOINTS ====================
+
+  static Future<Map<String, dynamic>> register({
+    required String name,
+    required String email,
+    required String password,
+    String? phone,
+    String role = 'customer',
+    String? studentType,
+  }) async {
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '/auth/register',
+      body: {
+        'name': name,
+        'email': email,
+        'password': password,
+        'phone': phone,
+        'role': role,
+        ...studentType != null ? {'studentType': studentType} : {},
+      },
+    );
   }
 
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse(
-              '${AppConfig.getSecureBaseUrl()}${AppConfig.loginEndpoint}',
-            ),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': email, 'password': password}),
-          )
-          .timeout(AppConfig.connectionTimeout);
+    final result = await _makeRequest(
+      method: 'POST',
+      endpoint: '/auth/login',
+      body: {'email': email, 'password': password},
+    );
 
-      SecureLogger.logRequest(
-        'POST',
-        '${AppConfig.getSecureBaseUrl()}${AppConfig.loginEndpoint}',
-        body: {'email': email, 'password': '[REDACTED]'},
-      );
+    if (result['success'] == true) {
+      final token = result['data']['token'] ?? '';
+      final refreshToken = result['data']['refreshToken'] ?? '';
 
-      SecureLogger.logResponse(
-        response.statusCode,
-        '${AppConfig.getSecureBaseUrl()}${AppConfig.loginEndpoint}',
-        body: response.body,
-      );
-
-      final responseData = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && responseData['success'] == true) {
-        // Save token to AuthService
-        final token = responseData['data']['token'];
-        if (token != null) {
-          await AuthService.saveToken(token);
-        }
-        return {'success': true, 'data': responseData['data']};
-      } else {
-        return {
-          'success': false,
-          'error': responseData['error'] ?? 'Login failed',
-        };
+      if (token.isNotEmpty) {
+        await AuthService.saveToken(token);
+        await AuthService.saveRefreshToken(refreshToken);
       }
-    } catch (e) {
-      SecureLogger.error('Login network error', error: e);
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
     }
+
+    return result;
   }
 
+  static Future<Map<String, dynamic>> refreshToken(String refreshToken) async {
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '/auth/refresh',
+      body: {'refreshToken': refreshToken},
+    );
+  }
+
+  static Future<Map<String, dynamic>> forgotPassword(String email) async {
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '/auth/forgot-password',
+      body: {'email': email},
+    );
+  }
+
+  static Future<Map<String, dynamic>> resetPassword({
+    required String token,
+    required String password,
+  }) async {
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '/auth/reset-password',
+      body: {'token': token, 'password': password},
+    );
+  }
+
+  static Future<Map<String, dynamic>> verifyEmail(String token) async {
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '/auth/verify-email',
+      body: {'token': token},
+    );
+  }
+
+  static Future<Map<String, dynamic>> logout(String token) async {
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '/auth/logout',
+      token: token,
+    );
+  }
+
+  static Future<Map<String, dynamic>> changePassword({
+    required String token,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '/auth/change-password',
+      token: token,
+      body: {'currentPassword': currentPassword, 'newPassword': newPassword},
+    );
+  }
+
+  static Future<Map<String, dynamic>> getProfile(String token) async {
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/auth/profile',
+      token: token,
+    );
+  }
+
+  // Alias for backward compatibility
   static Future<Map<String, dynamic>> getUserProfile(String token) async {
-    try {
-      debugPrint('🔍 Fetching user profile...');
-      debugPrint('📍 URL: ${AppConfig.baseUrl}${AppConfig.profileEndpoint}');
-      debugPrint('🔑 Token: ${token.isNotEmpty ? "Present" : "Missing"}');
-
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.profileEndpoint}'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      debugPrint('📡 Profile response status: ${response.statusCode}');
-      debugPrint('📄 Profile response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        if (responseData['success'] == true) {
-          debugPrint('✅ Profile data received: ${responseData['data']}');
-          return {'success': true, 'data': responseData['data']};
-        } else {
-          debugPrint('❌ Profile API returned success: false');
-          return {
-            'success': false,
-            'error': responseData['error'] ?? 'Profile fetch failed',
-          };
-        }
-      } else {
-        debugPrint(
-          '❌ Profile fetch failed with status: ${response.statusCode}',
-        );
-        return {
-          'success': false,
-          'error':
-              'Failed to get user profile (Status: ${response.statusCode})',
-        };
-      }
-    } catch (e) {
-      debugPrint('💥 Profile fetch error: $e');
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
-    }
+    return await getProfile(token);
   }
 
-  static Future<Map<String, dynamic>> getProducts() async {
-    try {
-      debugPrint('🔍 Fetching products...');
-      debugPrint('📍 URL: ${AppConfig.baseUrl}${AppConfig.productsEndpoint}');
+  static Future<Map<String, dynamic>> updateProfile({
+    required String token,
+    String? name,
+    String? phone,
+    String? avatar,
+  }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (phone != null) body['phone'] = phone;
+    if (avatar != null) body['avatar'] = avatar;
 
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.productsEndpoint}'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      debugPrint('📡 Products response status: ${response.statusCode}');
-      debugPrint('📄 Products response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        if (responseData['success'] == true) {
-          debugPrint('✅ Products data received: ${responseData['data']}');
-          return {'success': true, 'data': responseData['data']};
-        } else {
-          debugPrint('❌ Products API returned success: false');
-          return {
-            'success': false,
-            'error': responseData['error'] ?? 'Products fetch failed',
-          };
-        }
-      } else {
-        debugPrint(
-          '❌ Products fetch failed with status: ${response.statusCode}',
-        );
-        return {
-          'success': false,
-          'error': 'Failed to get products (Status: ${response.statusCode})',
-        };
-      }
-    } catch (e) {
-      debugPrint('💥 Products fetch error: $e');
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
-    }
+    return await _makeRequest(
+      method: 'PUT',
+      endpoint: '/auth/profile',
+      token: token,
+      body: body,
+    );
   }
 
-  static Future<Map<String, dynamic>> getCanteens() async {
-    try {
-      debugPrint('🔍 Fetching canteens...');
-      debugPrint('📍 URL: ${AppConfig.baseUrl}/api/canteens');
-
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}/api/canteens'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      debugPrint('📡 Canteens response status: ${response.statusCode}');
-      debugPrint('📄 Canteens response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        if (responseData['success'] == true) {
-          debugPrint('✅ Canteens data received: ${responseData['data']}');
-          return {'success': true, 'data': responseData['data']};
-        } else {
-          debugPrint('❌ Canteens API returned success: false');
-          return {
-            'success': false,
-            'error': responseData['error'] ?? 'Canteens fetch failed',
-          };
-        }
-      } else {
-        debugPrint(
-          '❌ Canteens fetch failed with status: ${response.statusCode}',
-        );
-        return {
-          'success': false,
-          'error': 'Failed to get canteens (Status: ${response.statusCode})',
-        };
-      }
-    } catch (e) {
-      debugPrint('💥 Canteens fetch error: $e');
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
-    }
+  static Future<Map<String, dynamic>> getAuthStatus(String token) async {
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/auth/status',
+      token: token,
+    );
   }
+
+  static Future<Map<String, dynamic>> resendVerification(String token) async {
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '/auth/resend-verification',
+      token: token,
+    );
+  }
+
+  static Future<Map<String, dynamic>> deleteAccount(String token) async {
+    return await _makeRequest(
+      method: 'DELETE',
+      endpoint: '/auth/account',
+      token: token,
+    );
+  }
+
+  // ==================== CUSTOMER ENDPOINTS ====================
+
+  static Future<Map<String, dynamic>> getVendors({
+    String? token,
+    String? category,
+    String? search,
+    String? status,
+    String? sortBy,
+    String? order,
+    bool? isOpen,
+    double? longitude,
+    double? latitude,
+    int? maxDistance,
+  }) async {
+    final queryParams = <String, String>{};
+    if (category != null) queryParams['category'] = category;
+    if (search != null) queryParams['search'] = search;
+    if (status != null) queryParams['status'] = status;
+    if (sortBy != null) queryParams['sortBy'] = sortBy;
+    if (order != null) queryParams['order'] = order;
+    if (isOpen != null) queryParams['isOpen'] = isOpen.toString();
+    if (longitude != null) queryParams['longitude'] = longitude.toString();
+    if (latitude != null) queryParams['latitude'] = latitude.toString();
+    if (maxDistance != null) {
+      queryParams['maxDistance'] = maxDistance.toString();
+    }
+
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/vendors',
+      token: token,
+      queryParams: queryParams,
+    );
+  }
+
+  // Alias for backward compatibility
+  static Future<Map<String, dynamic>> getCanteens({String? token}) async {
+    return await getVendors(token: token);
+  }
+
+  static Future<Map<String, dynamic>> getNearbyVendors({
+    required String token,
+    required double longitude,
+    required double latitude,
+    String? category,
+    String? search,
+    String? status,
+    String? sortBy,
+    String? order,
+    int? maxDistance,
+  }) async {
+    final queryParams = <String, String>{
+      'longitude': longitude.toString(),
+      'latitude': latitude.toString(),
+    };
+    if (category != null) queryParams['category'] = category;
+    if (search != null) queryParams['search'] = search;
+    if (status != null) queryParams['status'] = status;
+    if (sortBy != null) queryParams['sortBy'] = sortBy;
+    if (order != null) queryParams['order'] = order;
+    if (maxDistance != null) {
+      queryParams['maxDistance'] = maxDistance.toString();
+    }
+
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/vendors/nearby',
+      token: token,
+      queryParams: queryParams,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getVendorById({
+    required String token,
+    required String vendorId,
+  }) async {
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/vendors/$vendorId',
+      token: token,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getProducts({
+    String? token,
+    String? vendor,
+    String? category,
+    String? search,
+    double? minPrice,
+    double? maxPrice,
+    List<String>? dietary,
+    double? rating,
+    String? sortBy,
+    String? order,
+    bool? available,
+  }) async {
+    final queryParams = <String, String>{};
+    if (vendor != null) queryParams['vendor'] = vendor;
+    if (category != null) queryParams['category'] = category;
+    if (search != null) queryParams['search'] = search;
+    if (minPrice != null) queryParams['minPrice'] = minPrice.toString();
+    if (maxPrice != null) queryParams['maxPrice'] = maxPrice.toString();
+    if (dietary != null && dietary.isNotEmpty) {
+      queryParams['dietary'] = dietary.join(',');
+    }
+    if (rating != null) queryParams['rating'] = rating.toString();
+    if (sortBy != null) queryParams['sortBy'] = sortBy;
+    if (order != null) queryParams['order'] = order;
+    if (available != null) queryParams['available'] = available.toString();
+
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/products',
+      token: token,
+      queryParams: queryParams,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getFeaturedProducts({
+    String? token,
+    String? vendor,
+    String? category,
+    String? search,
+    double? minPrice,
+    double? maxPrice,
+    List<String>? dietary,
+    double? rating,
+    String? sortBy,
+    String? order,
+    bool? available,
+  }) async {
+    final queryParams = <String, String>{};
+    if (vendor != null) queryParams['vendor'] = vendor;
+    if (category != null) queryParams['category'] = category;
+    if (search != null) queryParams['search'] = search;
+    if (minPrice != null) queryParams['minPrice'] = minPrice.toString();
+    if (maxPrice != null) queryParams['maxPrice'] = maxPrice.toString();
+    if (dietary != null && dietary.isNotEmpty) {
+      queryParams['dietary'] = dietary.join(',');
+    }
+    if (rating != null) queryParams['rating'] = rating.toString();
+    if (sortBy != null) queryParams['sortBy'] = sortBy;
+    if (order != null) queryParams['order'] = order;
+    if (available != null) queryParams['available'] = available.toString();
+
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/products/featured',
+      token: token,
+      queryParams: queryParams,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getProductById({
+    required String token,
+    required String productId,
+  }) async {
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/products/$productId',
+      token: token,
+    );
+  }
+
+  static Future<Map<String, dynamic>> createOrder({
+    required String token,
+    required String vendor,
+    required List<Map<String, dynamic>> items,
+    Map<String, dynamic>? delivery,
+    required String paymentMethod,
+    String? couponCode,
+  }) async {
+    final body = <String, dynamic>{
+      'vendor': vendor,
+      'items': items,
+      'paymentMethod': paymentMethod,
+    };
+
+    if (delivery != null) body['delivery'] = delivery;
+    if (couponCode != null) body['couponCode'] = couponCode;
+
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '/customer/orders',
+      token: token,
+      body: body,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getUserOrders({
+    required String token,
+    int? page,
+    int? limit,
+    String? status,
+  }) async {
+    final queryParams = <String, String>{};
+    if (page != null) queryParams['page'] = page.toString();
+    if (limit != null) queryParams['limit'] = limit.toString();
+    if (status != null) queryParams['status'] = status;
+
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/orders',
+      token: token,
+      queryParams: queryParams,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getOrderById({
+    required String token,
+    required String orderId,
+  }) async {
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/orders/$orderId',
+      token: token,
+    );
+  }
+
+  static Future<Map<String, dynamic>> cancelOrder({
+    required String token,
+    required String orderId,
+    required String reason,
+  }) async {
+    return await _makeRequest(
+      method: 'PATCH',
+      endpoint: '/customer/orders/$orderId/cancel',
+      token: token,
+      body: {'reason': reason},
+    );
+  }
+
+  static Future<Map<String, dynamic>> rateOrder({
+    required String token,
+    required String orderId,
+    required int food,
+    required int overall,
+    int? delivery,
+    String? review,
+  }) async {
+    final body = <String, dynamic>{'food': food, 'overall': overall};
+
+    if (delivery != null) body['delivery'] = delivery;
+    if (review != null) body['review'] = review;
+
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '/customer/orders/$orderId/rate',
+      token: token,
+      body: body,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getOrderStatistics(String token) async {
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/orders/stats',
+      token: token,
+    );
+  }
+
+  static Future<Map<String, dynamic>> search({
+    required String token,
+    required String query,
+    String? type,
+  }) async {
+    final queryParams = <String, String>{'q': query};
+    if (type != null) queryParams['type'] = type;
+
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/search',
+      token: token,
+      queryParams: queryParams,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getCategories(String token) async {
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: '/customer/categories',
+      token: token,
+    );
+  }
+
+  // ==================== UTILITY METHODS ====================
 
   static Future<bool> testConnection() async {
     try {
-      debugPrint('🔍 Testing connection to backend...');
-      final response = await http
-          .get(
-            Uri.parse('${AppConfig.baseUrl}${AppConfig.productsEndpoint}'),
-            headers: {'Content-Type': 'application/json'},
-          )
-          .timeout(
-            Duration(seconds: AppConfig.connectionTimeout.inSeconds),
-            onTimeout: () {
-              debugPrint('⏰ Connection test timed out');
-              throw Exception('Connection timeout');
-            },
-          );
-
-      final isConnected = response.statusCode == 200;
-      debugPrint(
-        '📡 Connection test result: ${isConnected ? "Connected" : "Failed"}',
-      );
-      return isConnected;
+      final result = await healthCheck();
+      return result['success'] == true;
     } catch (e) {
       debugPrint('💥 Connection test failed: $e');
       return false;
     }
   }
 
-  static Future<Map<String, dynamic>> createOrder({
-    required List<Map<String, dynamic>> items,
-    required int totalAmount,
-    required String deliveryAddress,
-    required String paymentMethod,
-    required String token,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.ordersEndpoint}'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'items': items,
-          'totalAmount': totalAmount,
-          'deliveryAddress': deliveryAddress,
-          'paymentMethod': paymentMethod,
-        }),
-      );
-
-      if (response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        return {'success': true, 'data': data};
-      } else {
-        final error = jsonDecode(response.body);
-        return {
-          'success': false,
-          'error': error['error'] ?? 'Failed to create order',
-        };
-      }
-    } catch (e) {
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
-    }
+  static Future<Map<String, dynamic>> healthCheck() async {
+    return await _makeRequest(method: 'GET', endpoint: '/health');
   }
 
-  static Future<Map<String, dynamic>> getMyOrders(String token) async {
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.myOrdersEndpoint}'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {'success': true, 'data': data};
-      } else {
-        return {'success': false, 'error': 'Failed to get orders'};
-      }
-    } catch (e) {
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
-    }
-  }
-
-  static Future<Map<String, dynamic>> getProductById(String productId) async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-          '${AppConfig.baseUrl}${AppConfig.productsEndpoint}/$productId',
-        ),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {'success': true, 'data': data};
-      } else {
-        return {'success': false, 'error': 'Failed to get product'};
-      }
-    } catch (e) {
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
-    }
-  }
-
-  static Future<Map<String, dynamic>> updateProfile({
-    required String token,
-    String? name,
-    String? email,
-    String? userType,
-    String? studentType,
-    String? password,
-  }) async {
-    try {
-      final body = <String, dynamic>{};
-      if (name != null) body['name'] = name;
-      if (email != null) body['email'] = email;
-      if (userType != null) body['userType'] = userType;
-      if (studentType != null) body['studentType'] = studentType;
-      if (password != null) body['password'] = password;
-
-      final response = await http.put(
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.profileEndpoint}'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(body),
-      );
-
-      final responseData = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && responseData['success'] == true) {
-        return {'success': true, 'data': responseData['data']};
-      } else {
-        return {
-          'success': false,
-          'error': responseData['error'] ?? 'Profile update failed',
-        };
-      }
-    } catch (e) {
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
-    }
-  }
-
-  static Future<Map<String, dynamic>> uploadImage({
-    required String token,
-    required String imagePath,
-  }) async {
-    try {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.uploadEndpoint}'),
-      );
-
-      request.headers['Authorization'] = 'Bearer $token';
-      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      final responseData = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && responseData['success'] == true) {
-        return {'success': true, 'data': responseData['data']};
-      } else {
-        return {
-          'success': false,
-          'error': responseData['error'] ?? 'Image upload failed',
-        };
-      }
-    } catch (e) {
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
-    }
-  }
-
-  // Admin endpoints
-  static Future<Map<String, dynamic>> getAllUsers(String adminToken) async {
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.adminUsersEndpoint}'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $adminToken',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {'success': true, 'data': data};
-      } else {
-        return {'success': false, 'error': 'Failed to get users'};
-      }
-    } catch (e) {
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
-    }
-  }
-
-  static Future<Map<String, dynamic>> getAllOrders(String adminToken) async {
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}${AppConfig.adminOrdersEndpoint}'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $adminToken',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {'success': true, 'data': data};
-      } else {
-        return {'success': false, 'error': 'Failed to get orders'};
-      }
-    } catch (e) {
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
-    }
-  }
-
-  static Future<void> logout() async {
-    // Implement logout logic if needed (clear token on server)
-    // For now, just clear local storage
-  }
-
-  static Future<bool> isLoggedIn() async {
-    // Check if token exists and is valid
-    // This would need token storage implementation
-    return false;
-  }
-
-  // Helper method to get current base URL for debugging
   static String getCurrentBaseUrl() {
-    return AppConfig.validateAndGetBaseUrl();
+    return _baseUrl;
   }
 }

@@ -43,7 +43,7 @@ class _MyAppState extends State<MyApp> {
     return AppStateScope(
       notifier: appState,
       child: MaterialApp(
-        title: 'Campus Eats',
+        title: 'UniNest',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFFFF6B6B),

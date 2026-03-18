@@ -99,10 +99,13 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.restaurant_menu,
-                          size: 60,
-                          color: Color(0xFFFF6B6B),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/uninest.jpeg',
+                            width: 120,
+                            height: 120,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
 
@@ -110,7 +113,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                       // App Name
                       const Text(
-                        'Campus Eats',
+                        'UniNest',
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -123,7 +126,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                       // Tagline
                       const Text(
-                        'Delicious food at your doorstep',
+                        'Your campus living companion',
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.white70,

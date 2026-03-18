@@ -1,0 +1,91 @@
+# Campus Eats - Library Structure
+
+This directory contains the core source code for the Campus Eats Flutter application.
+
+## 📁 Directory Structure
+
+```
+lib/
+├── main.dart                 # Application entry point
+├── splash_screen.dart        # App splash screen with animations
+├── README.md                 # This file
+├── config/                   # Configuration files
+├── services/                 # Business logic and API services
+├── Users/                    # User-related screens and state management
+└── utils/                    # Utility functions and helpers
+```
+
+## 🚀 Core Files
+
+### `main.dart`
+- Application entry point and initialization
+- Sets up the MaterialApp with theme configuration
+- Defines app routes and navigation structure
+- Initializes app state management
+
+### `splash_screen.dart`
+- Animated splash screen with fade and scale effects
+- Handles initial app loading and authentication checks
+- Transitions to appropriate screen based on auth state
+
+## 📂 Subdirectories
+
+### `config/`
+Contains application configuration:
+- `app_config.dart` - Secure configuration management and initialization
+
+### `services/`
+Business logic and external service integrations:
+- `api_service.dart` - HTTP API client and network requests
+- `auth_service.dart` - Authentication and user session management
+- `secure_storage_service.dart` - Secure data storage utilities
+
+### `Users/`
+User interface and state management:
+- `screen/` - UI screens (17 items including auth, navigation, and feature screens)
+- `state/` - State management for user-related data
+- `widgets/` - Reusable UI components (3 custom widgets)
+
+### `utils/`
+Utility functions and helpers:
+- `constants.dart` - App-wide constants and configurations
+- `currency_formatter.dart` - Currency formatting utilities
+- `formatters.dart` - Data formatting functions
+- `helpers.dart` - General helper functions
+- `input_validator.dart` - Form validation logic
+- `secure_logger.dart` - Secure logging utilities
+- `ssl_validator.dart` - SSL certificate validation
+- `utils.dart` - General utility functions
+- `validators.dart` - Input validation functions
+
+## 🎨 Theme & Styling
+
+The app uses Material 3 design with:
+- Primary color: `#FF6B6B` (coral red)
+- Light theme with custom button styling
+- Rounded input fields with custom borders
+- Elevated buttons with consistent styling
+
+## 🔄 Navigation
+
+App routes are defined in `main.dart`:
+- `/splash` - Splash screen (initial route)
+- `/home` - Main navigation screen
+- `/login` - User login screen
+- `/signup` - User registration screen
+
+## 🏗️ Architecture
+
+- **State Management**: Uses custom state management with `CampusAppState`
+- **Services Layer**: Separated business logic in services directory
+- **UI Components**: Modular screen and widget structure
+- **Security**: Secure storage and SSL validation for data protection
+- **Configuration**: Centralized app configuration management
+
+## 🔧 Key Features
+
+- User authentication and session management
+- Secure data storage and API communication
+- Form validation and input formatting
+- Responsive Material 3 UI design
+- Animated splash screen and transitions

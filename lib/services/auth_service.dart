@@ -4,6 +4,7 @@ import '../config/app_config.dart';
 
 class AuthService {
   static const String _tokenKey = 'auth_token';
+  static const String _refreshTokenKey = 'refresh_token';
   static const String _userKey = 'user_data';
 
   // Save authentication token securely
@@ -21,6 +22,21 @@ class AuthService {
     }
   }
 
+  // Save refresh token securely
+  static Future<void> saveRefreshToken(String refreshToken) async {
+    try {
+      await SecureStorageService.saveRefreshToken(refreshToken);
+    } catch (e) {
+      // Fallback to SharedPreferences for development
+      if (AppConfig.isDebugMode) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_refreshTokenKey, refreshToken);
+      } else {
+        rethrow;
+      }
+    }
+  }
+
   // Get authentication token securely
   static Future<String?> getToken() async {
     try {
@@ -30,6 +46,20 @@ class AuthService {
       if (AppConfig.isDebugMode) {
         final prefs = await SharedPreferences.getInstance();
         return prefs.getString(_tokenKey);
+      }
+      return null;
+    }
+  }
+
+  // Get refresh token securely
+  static Future<String?> getRefreshToken() async {
+    try {
+      return await SecureStorageService.getRefreshToken();
+    } catch (e) {
+      // Fallback to SharedPreferences for development
+      if (AppConfig.isDebugMode) {
+        final prefs = await SharedPreferences.getInstance();
+        return prefs.getString(_refreshTokenKey);
       }
       return null;
     }
@@ -91,6 +121,7 @@ class AuthService {
       if (AppConfig.isDebugMode) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove(_tokenKey);
+        await prefs.remove(_refreshTokenKey);
         await prefs.remove(_userKey);
       }
     }

@@ -1,4 +1,4 @@
-# campus_eats
+# UniNest
 
 A new Flutter project.
 
