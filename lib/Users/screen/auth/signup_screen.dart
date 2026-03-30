@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_screen.dart';
 import '../../../services/api_service.dart';
+import '../../../services/auth_service.dart';
+import '../../state/app_state.dart';
 import '../../../utils/utils.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -83,7 +85,21 @@ class _SignupScreenState extends State<SignupScreen>
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('userEmail', _emailController.text.trim());
 
+          final data = result['data'];
+          if (data is Map<String, dynamic>) {
+            final token = (data['token'] ?? '').toString();
+            final refreshToken = (data['refreshToken'] ?? '').toString();
+            if (token.isNotEmpty) {
+              await AuthService.saveToken(token);
+            }
+            if (refreshToken.isNotEmpty) {
+              await AuthService.saveRefreshToken(refreshToken);
+            }
+            await AuthService.saveUserData(data);
+          }
+
           if (mounted) {
+            await AppStateScope.of(context).refreshAllData();
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Registration successful!'),

@@ -6,7 +6,7 @@ import '../config/app_config.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  static const String _baseUrl = 'http://192.168.1.7:5000/api/v1';
+  static String get _baseUrl => AppConfig.getSecureBaseUrl();
 
   // Common headers
   static Map<String, String> _getHeaders({String? token}) {
@@ -31,14 +31,7 @@ class ApiService {
     Map<String, String>? queryParams,
   }) async {
     try {
-      Uri uri;
-      if (queryParams != null && queryParams.isNotEmpty) {
-        uri = Uri.parse(
-          '$_baseUrl$endpoint',
-        ).replace(queryParameters: queryParams);
-      } else {
-        uri = Uri.parse('$_baseUrl$endpoint');
-      }
+      final uri = _buildUri(endpoint, queryParams: queryParams);
 
       debugPrint('🔍 API Request: $method $uri');
       if (body != null) {
@@ -114,6 +107,25 @@ class ApiService {
       debugPrint('💥 API Error: $e');
       return {'success': false, 'error': 'Network error: ${e.toString()}'};
     }
+  }
+
+  static Uri _buildUri(
+    String endpoint, {
+    Map<String, String>? queryParams,
+  }) {
+    final normalizedBase = _baseUrl.endsWith('/')
+        ? _baseUrl.substring(0, _baseUrl.length - 1)
+        : _baseUrl;
+    final normalizedEndpoint = endpoint.startsWith('/')
+        ? endpoint.substring(1)
+        : endpoint;
+    final url = '$normalizedBase/$normalizedEndpoint';
+
+    if (queryParams != null && queryParams.isNotEmpty) {
+      return Uri.parse(url).replace(queryParameters: queryParams);
+    }
+
+    return Uri.parse(url);
   }
 
   // Sanitize sensitive data for logging
@@ -319,7 +331,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/vendors',
+      endpoint: '/vendors',
       token: token,
       queryParams: queryParams,
     );
@@ -356,7 +368,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/vendors/nearby',
+      endpoint: '/vendors/nearby',
       token: token,
       queryParams: queryParams,
     );
@@ -368,7 +380,7 @@ class ApiService {
   }) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/vendors/$vendorId',
+      endpoint: '/vendors/$vendorId',
       token: token,
     );
   }
@@ -402,7 +414,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/products',
+      endpoint: '/products',
       token: token,
       queryParams: queryParams,
     );
@@ -437,7 +449,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/products/featured',
+      endpoint: '/products/featured',
       token: token,
       queryParams: queryParams,
     );
@@ -449,7 +461,7 @@ class ApiService {
   }) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/products/$productId',
+      endpoint: '/products/$productId',
       token: token,
     );
   }
@@ -473,7 +485,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/customer/orders',
+      endpoint: '/orders',
       token: token,
       body: body,
     );
@@ -492,7 +504,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/orders',
+      endpoint: '/orders',
       token: token,
       queryParams: queryParams,
     );
@@ -504,7 +516,7 @@ class ApiService {
   }) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/orders/$orderId',
+      endpoint: '/orders/$orderId',
       token: token,
     );
   }
@@ -516,7 +528,7 @@ class ApiService {
   }) async {
     return await _makeRequest(
       method: 'PATCH',
-      endpoint: '/customer/orders/$orderId/cancel',
+      endpoint: '/orders/$orderId/cancel',
       token: token,
       body: {'reason': reason},
     );
@@ -537,7 +549,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/customer/orders/$orderId/rate',
+      endpoint: '/orders/$orderId/rate',
       token: token,
       body: body,
     );
@@ -546,7 +558,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getOrderStatistics(String token) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/orders/stats',
+      endpoint: '/orders/stats',
       token: token,
     );
   }
@@ -561,7 +573,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/search',
+      endpoint: '/search',
       token: token,
       queryParams: queryParams,
     );
@@ -570,7 +582,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getCategories(String token) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/customer/categories',
+      endpoint: '/categories',
       token: token,
     );
   }

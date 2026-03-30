@@ -3,6 +3,7 @@ import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
+import '../../state/app_state.dart';
 import '../../../utils/utils.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -78,6 +79,7 @@ class _LoginScreenState extends State<LoginScreen>
           await AuthService.saveUserData(result['data'] ?? {});
 
           if (mounted) {
+            await AppStateScope.of(context).refreshAllData();
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Login successful!'),

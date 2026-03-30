@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/api_service.dart';
+import '../../../services/auth_service.dart';
 import '../../../utils/utils.dart';
 
 class CampusAppState extends ChangeNotifier {
@@ -14,9 +15,7 @@ class CampusAppState extends ChangeNotifier {
     _restoreFavoritesFromStorage();
     _restoreOrdersFromStorage();
     _startStatusUpdateTimer();
-    _fetchProductsFromBackend();
-    _fetchCanteensFromBackend();
-    _fetchCategoriesFromBackend();
+    _initializeBackendData();
   }
 
   @override
@@ -43,6 +42,25 @@ class CampusAppState extends ChangeNotifier {
   bool get hasConnectionError => _hasConnectionError;
   String get errorMessage => _errorMessage;
 
+  Future<void> _initializeBackendData() async {
+    final token = await AuthService.getToken();
+    if (token == null || token.isEmpty) {
+      _setGuestModeDefaults();
+      return;
+    }
+
+    await refreshAllData();
+  }
+
+  void _setGuestModeDefaults() {
+    _hasConnectionError = false;
+    _errorMessage = '';
+    _categories
+      ..clear()
+      ..addAll(['All', 'Burgers', 'Pizza', 'Drinks', 'Desserts', 'Snacks']);
+    notifyListeners();
+  }
+
   // Fetch products from backend API
   Future<void> _fetchProductsFromBackend() async {
     _isLoadingProducts = true;
@@ -50,7 +68,15 @@ class CampusAppState extends ChangeNotifier {
 
     try {
       debugPrint('🔍 AppState: Fetching products from backend...');
-      final response = await ApiService.getProducts();
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) {
+        _products.clear();
+        _hasConnectionError = false;
+        _errorMessage = '';
+        return;
+      }
+
+      final response = await ApiService.getProducts(token: token);
 
       if (response['success'] == true) {
         final List<dynamic> productsData = response['data'];
@@ -149,7 +175,13 @@ class CampusAppState extends ChangeNotifier {
         );
       } else {
         // If no products, try to fetch categories from products endpoint
-        final response = await ApiService.getProducts();
+        final token = await AuthService.getToken();
+        if (token == null || token.isEmpty) {
+          _setGuestModeDefaults();
+          return;
+        }
+
+        final response = await ApiService.getProducts(token: token);
         if (response['success'] == true) {
           final List<dynamic> productsData = response['data'];
           final Set<String> uniqueCategories = {};
@@ -198,7 +230,15 @@ class CampusAppState extends ChangeNotifier {
     try {
       debugPrint('🔍 AppState: Fetching canteens from backend...');
 
-      final response = await ApiService.getCanteens();
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) {
+        _canteens.clear();
+        _hasConnectionError = false;
+        _errorMessage = '';
+        return;
+      }
+
+      final response = await ApiService.getCanteens(token: token);
 
       if (response['success'] == true) {
         final List<dynamic> canteensData = response['data'];

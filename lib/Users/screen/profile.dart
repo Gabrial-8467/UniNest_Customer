@@ -21,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   Map<String, dynamic>? userData;
   bool isLoading = true;
+  bool isGuestMode = false;
   String? errorMessage;
 
   @override
@@ -33,6 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     debugPrint('🔄 Starting profile load...');
     setState(() {
       isLoading = true;
+      isGuestMode = false;
       errorMessage = null;
     });
 
@@ -46,7 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (token == null || token.isEmpty) {
         debugPrint('❌ No token available');
         setState(() {
-          errorMessage = 'No authentication token found. Please login again.';
+          isGuestMode = true;
           isLoading = false;
         });
         return;
@@ -121,6 +123,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
+    if (isGuestMode) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: _buildAppBar(),
+        body: _buildGuestView(),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: _buildAppBar(),
@@ -155,12 +165,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
             )
           : null,
       automaticallyImplyLeading: widget.showBackButton,
-      actions: [
-        IconButton(
-          onPressed: _showEditProfileDialog,
-          icon: const Icon(Icons.edit, color: Color(0xFF2D3436)),
+      actions: isGuestMode
+          ? null
+          : [
+              IconButton(
+                onPressed: _showEditProfileDialog,
+                icon: const Icon(Icons.edit, color: Color(0xFF2D3436)),
+              ),
+            ],
+    );
+  }
+
+  Widget _buildGuestView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundColor: const Color(0xFFFF6B6B).withValues(alpha: 0.12),
+              child: const Icon(
+                Icons.person_outline,
+                size: 40,
+                color: Color(0xFFFF6B6B),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'You are browsing as guest',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D3436),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Login or create an account to load your profile and access protected backend features.',
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey[600],
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, '/login'),
+                child: const Text('Login'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pushNamed(context, '/signup'),
+                child: const Text('Sign Up'),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

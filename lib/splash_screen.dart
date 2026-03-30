@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'Users/screen/main_navigation_screen.dart';
-import 'Users/screen/auth/login_screen.dart';
-import 'services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -43,21 +41,12 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateToHome() async {
-    // Reduce splash delay and make navigation faster
     await Future.delayed(const Duration(seconds: 2));
 
     if (mounted) {
-      // Quick check if user is logged in (non-blocking)
-      final isLoggedIn = await AuthService.isLoggedIn();
-
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) =>
-                isLoggedIn ? const MainNavigationScreen() : const LoginScreen(),
-          ),
-        );
-      }
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
+      );
     }
   }
 
