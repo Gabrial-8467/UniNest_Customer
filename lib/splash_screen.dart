@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'Users/screen/main_navigation_screen.dart';
+import 'services/auth_service.dart';
+import 'utils/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,7 +21,7 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
     _initializeAnimations();
-    _navigateToHome();
+    _routeFromSplash();
   }
 
   void _initializeAnimations() {
@@ -40,13 +41,12 @@ class _SplashScreenState extends State<SplashScreen>
     _animationController.forward();
   }
 
-  void _navigateToHome() async {
+  Future<void> _routeFromSplash() async {
     await Future.delayed(const Duration(seconds: 2));
+    final isLoggedIn = await AuthService.isLoggedIn();
 
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
-      );
+      Navigator.pushReplacementNamed(context, isLoggedIn ? '/home' : '/login');
     }
   }
 
@@ -59,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFF6B6B),
+      backgroundColor: AppColors.primary,
       body: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.light,
         child: Center(
@@ -102,11 +102,11 @@ class _SplashScreenState extends State<SplashScreen>
 
                       // App Name
                       const Text(
-                        'UniNest',
+                        'UNINEST',
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: AppColors.surface,
                           letterSpacing: 1.2,
                         ),
                       ),
@@ -114,11 +114,11 @@ class _SplashScreenState extends State<SplashScreen>
                       const SizedBox(height: 10),
 
                       // Tagline
-                      const Text(
+                      Text(
                         'Your campus living companion',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.white70,
+                          color: AppColors.surface.withValues(alpha: 0.7),
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -132,7 +132,7 @@ class _SplashScreenState extends State<SplashScreen>
                         child: CircularProgressIndicator(
                           strokeWidth: 3,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white.withValues(alpha: 0.8),
+                            AppColors.surface.withValues(alpha: 0.8),
                           ),
                         ),
                       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
 import 'checkout.dart';
 
@@ -19,7 +20,7 @@ class CartScreen extends StatelessWidget {
         final cartItems = appState.cartItems;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8F9FA),
+          backgroundColor: AppColors.background,
           appBar: _buildAppBar(context),
           body: cartItems.isEmpty
               ? _buildEmptyCart(context)
@@ -34,7 +35,7 @@ class CartScreen extends StatelessWidget {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       elevation: 0,
       title: const Text(
         'My Cart',
@@ -47,7 +48,7 @@ class CartScreen extends StatelessWidget {
       leading: showBackButton
           ? IconButton(
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3436)),
+              icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
             )
           : null,
       automaticallyImplyLeading: showBackButton,
@@ -65,7 +66,7 @@ class CartScreen extends StatelessWidget {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -87,7 +88,7 @@ class CartScreen extends StatelessWidget {
             Text(
               'Add items from home or canteen menu to checkout.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -146,7 +147,9 @@ class CartScreen extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.network(
-              item['imageUrl'] ?? '',
+              item['imageUrl'] is Map
+                  ? item['imageUrl']['url'] ?? ''
+                  : (item['imageUrl'] ?? '').toString(),
               width: 78,
               height: 78,
               fit: BoxFit.cover,

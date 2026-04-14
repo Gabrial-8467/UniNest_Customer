@@ -4,6 +4,7 @@ import 'login_screen.dart';
 import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
 import '../../state/app_state.dart';
+import '../../../utils/app_theme.dart';
 import '../../../utils/utils.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class _SignupScreenState extends State<SignupScreen>
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
@@ -55,6 +57,7 @@ class _SignupScreenState extends State<SignupScreen>
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _animationController?.dispose();
@@ -74,6 +77,7 @@ class _SignupScreenState extends State<SignupScreen>
         final result = await ApiService.register(
           name: _nameController.text.trim(),
           email: _emailController.text.trim(),
+          phone: _phoneController.text.trim(),
           password: _passwordController.text,
           role: 'customer',
           studentType: _studentType,
@@ -100,10 +104,11 @@ class _SignupScreenState extends State<SignupScreen>
 
           if (mounted) {
             await AppStateScope.of(context).refreshAllData();
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Registration successful!'),
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.success,
               ),
             );
             Navigator.pushReplacementNamed(context, '/home');
@@ -113,7 +118,7 @@ class _SignupScreenState extends State<SignupScreen>
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Registration failed: ${result['error']}'),
-                backgroundColor: Colors.red,
+                backgroundColor: AppColors.error,
               ),
             );
           }
@@ -124,7 +129,7 @@ class _SignupScreenState extends State<SignupScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Registration failed: ${e.toString()}'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -141,23 +146,24 @@ class _SignupScreenState extends State<SignupScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFFFF6B6B).withValues(alpha: 0.1),
-              const Color(0xFFF8F9FA),
-              const Color(0xFFF8F9FA),
+              AppColors.primary.withValues(alpha: 0.1),
+              AppColors.background,
+              AppColors.background,
             ],
           ),
         ),
         child: SafeArea(
           child: Form(
             key: _formKey,
-            child: Padding(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.all(8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -174,25 +180,8 @@ class _SignupScreenState extends State<SignupScreen>
                   else
                     _buildHeaderCard(),
                   const SizedBox(height: 8),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (_slideAnimation != null && _fadeAnimation != null)
-                            SlideTransition(
-                              position: _slideAnimation!,
-                              child: FadeTransition(
-                                opacity: _fadeAnimation!,
-                                child: _buildFormFields(),
-                              ),
-                            )
-                          else
-                            _buildFormFields(),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _buildFormFields(),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -206,7 +195,7 @@ class _SignupScreenState extends State<SignupScreen>
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -229,20 +218,20 @@ class _SignupScreenState extends State<SignupScreen>
           ),
           const SizedBox(height: 10),
           const Text(
-            'Join UniNest',
+            'Join UNINEST',
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF2D3436),
+              color: AppColors.textPrimary,
               letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Join UniNest and start your \n campus living experience!',
+            'Join UNINEST and start your \n campus living experience!',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[600],
+              color: AppColors.textPrimary,
               height: 1.4,
             ),
             textAlign: TextAlign.center,
@@ -256,7 +245,7 @@ class _SignupScreenState extends State<SignupScreen>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -281,6 +270,14 @@ class _SignupScreenState extends State<SignupScreen>
             icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
             validator: Validators.validateEmail,
+          ),
+          const SizedBox(height: 8),
+          _buildTextField(
+            controller: _phoneController,
+            label: 'Phone Number',
+            icon: Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
+            validator: Validators.validatePhone,
           ),
           const SizedBox(height: 8),
           _buildTextField(
@@ -327,18 +324,18 @@ class _SignupScreenState extends State<SignupScreen>
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      style: const TextStyle(fontSize: 16, color: Color(0xFF2D3436)),
+      style: const TextStyle(fontSize: 16, color: AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
-        prefixIcon: Icon(icon, color: const Color(0xFFFF6B6B), size: 22),
+        labelStyle: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        prefixIcon: Icon(icon, color: AppColors.primary, size: 22),
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
                   obscureText
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
-                  color: Colors.grey[600],
+                  color: AppColors.textSecondary,
                 ),
                 onPressed: () {
                   setState(() {
@@ -353,26 +350,26 @@ class _SignupScreenState extends State<SignupScreen>
               )
             : null,
         filled: true,
-        fillColor: const Color(0xFFF8F9FA),
+        fillColor: AppColors.background,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
+          borderSide: const BorderSide(color: AppColors.textLight, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFFF6B6B), width: 2),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.red, width: 1),
+          borderSide: const BorderSide(color: AppColors.error, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.red, width: 2),
+          borderSide: const BorderSide(color: AppColors.error, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -389,14 +386,14 @@ class _SignupScreenState extends State<SignupScreen>
       height: 56,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [const Color(0xFFFF6B6B), const Color(0xFFFF8E8E)],
+          colors: [AppColors.primary, AppColors.primaryLight],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
+            color: AppColors.primary.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -412,15 +409,20 @@ class _SignupScreenState extends State<SignupScreen>
           ),
         ),
         child: _isLoading
-            ? const CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 3,
+                  strokeCap: StrokeCap.round,
+                ),
               )
             : const Text(
                 'Sign Up',
                 style: TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: Colors.white,
                   letterSpacing: 0.5,
                 ),
@@ -439,7 +441,7 @@ class _SignupScreenState extends State<SignupScreen>
       },
       child: const Text(
         "Already have an account? Login",
-        style: TextStyle(color: Color(0xFFFF6B6B)),
+        style: TextStyle(color: AppColors.primary),
       ),
     );
   }
@@ -448,19 +450,19 @@ class _SignupScreenState extends State<SignupScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[300]!, width: 1),
+        border: Border.all(color: AppColors.textLight, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Student Type',
-            style: TextStyle(
+            style: const TextStyle(
+              color: AppColors.primary,
               fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 12),
@@ -485,8 +487,8 @@ class _SignupScreenState extends State<SignupScreen>
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: _studentType == 'hostler'
-                                  ? const Color(0xFFFF6B6B)
-                                  : Colors.grey[600]!,
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
                               width: 2,
                             ),
                           ),
@@ -495,7 +497,7 @@ class _SignupScreenState extends State<SignupScreen>
                                   margin: const EdgeInsets.all(4),
                                   decoration: const BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: Color(0xFFFF6B6B),
+                                    color: AppColors.primary,
                                   ),
                                 )
                               : null,
@@ -532,8 +534,8 @@ class _SignupScreenState extends State<SignupScreen>
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: _studentType == 'day_scholar'
-                                  ? const Color(0xFFFF6B6B)
-                                  : Colors.grey[600]!,
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
                               width: 2,
                             ),
                           ),
@@ -542,7 +544,7 @@ class _SignupScreenState extends State<SignupScreen>
                                   margin: const EdgeInsets.all(4),
                                   decoration: const BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: Color(0xFFFF6B6B),
+                                    color: AppColors.primary,
                                   ),
                                 )
                               : null,

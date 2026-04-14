@@ -4,6 +4,7 @@ import 'forgot_password_screen.dart';
 import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
 import '../../state/app_state.dart';
+import '../../../utils/app_theme.dart';
 import '../../../utils/utils.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -80,10 +81,11 @@ class _LoginScreenState extends State<LoginScreen>
 
           if (mounted) {
             await AppStateScope.of(context).refreshAllData();
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Login successful!'),
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.success,
               ),
             );
             Navigator.pushReplacementNamed(context, '/home');
@@ -93,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen>
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Login failed: ${result['error']}'),
-                backgroundColor: Colors.red,
+                backgroundColor: AppColors.error,
               ),
             );
           }
@@ -123,16 +125,16 @@ class _LoginScreenState extends State<LoginScreen>
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFFFF6B6B).withValues(alpha: 0.1),
-              const Color(0xFFF8F9FA),
-              const Color(0xFFF8F9FA),
+              AppColors.primary.withValues(alpha: 0.1),
+              AppColors.background,
+              AppColors.background,
             ],
           ),
         ),
@@ -184,7 +186,7 @@ class _LoginScreenState extends State<LoginScreen>
         MediaQuery.of(context).size.width > 600 ? 32 : 24,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -199,32 +201,24 @@ class _LoginScreenState extends State<LoginScreen>
           Hero(
             tag: 'logo',
             child: Container(
-              padding: EdgeInsets.all(
-                MediaQuery.of(context).size.width > 600 ? 24 : 20,
-              ),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFFF6B6B),
-                    const Color(0xFFFF8E8E),
-                    const Color(0xFFFFA8A8),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(50),
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              child: Icon(
-                Icons.restaurant_menu,
-                size: MediaQuery.of(context).size.width > 600 ? 80 : 60,
-                color: Colors.white,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  'assets/uninest.jpeg',
+                  width: MediaQuery.of(context).size.width > 600 ? 120 : 100,
+                  height: MediaQuery.of(context).size.width > 600 ? 120 : 100,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ),
@@ -234,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen>
             style: TextStyle(
               fontSize: MediaQuery.of(context).size.width > 600 ? 36 : 32,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF2D3436),
+              color: AppColors.textPrimary,
               letterSpacing: -0.5,
             ),
           ),
@@ -243,7 +237,7 @@ class _LoginScreenState extends State<LoginScreen>
             'Login to continue ordering\ndelicious food from campus',
             style: TextStyle(
               fontSize: MediaQuery.of(context).size.width > 600 ? 18 : 16,
-              color: Colors.grey[600],
+              color: AppColors.textSecondary,
               height: 1.4,
             ),
             textAlign: TextAlign.center,
@@ -260,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen>
     return Container(
       padding: EdgeInsets.all(isTablet ? 32 : 24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -303,10 +297,10 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   );
                 },
-                child: const Text(
+                child: Text(
                   'Forgot Password?',
                   style: TextStyle(
-                    color: Color(0xFFFF6B6B),
+                    color: AppColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -343,17 +337,17 @@ class _LoginScreenState extends State<LoginScreen>
       keyboardType: keyboardType,
       style: TextStyle(
         fontSize: isTablet ? 18 : 16,
-        color: const Color(0xFF2D3436),
+        color: AppColors.textPrimary,
       ),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(
-          color: Colors.grey[600],
+          color: AppColors.textSecondary,
           fontSize: isTablet ? 16 : 14,
         ),
         prefixIcon: Icon(
           icon,
-          color: const Color(0xFFFF6B6B),
+          color: AppColors.primary,
           size: isTablet ? 26 : 22,
         ),
         suffixIcon: isPassword
@@ -362,7 +356,7 @@ class _LoginScreenState extends State<LoginScreen>
                   obscureText
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
-                  color: Colors.grey[600],
+                  color: AppColors.textSecondary,
                   size: isTablet ? 26 : 22,
                 ),
                 onPressed: () {
@@ -373,26 +367,26 @@ class _LoginScreenState extends State<LoginScreen>
               )
             : null,
         filled: true,
-        fillColor: const Color(0xFFF8F9FA),
+        fillColor: AppColors.background,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
+          borderSide: const BorderSide(color: AppColors.textLight, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFFF6B6B), width: 2),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.red, width: 1),
+          borderSide: const BorderSide(color: AppColors.error, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.red, width: 2),
+          borderSide: const BorderSide(color: AppColors.error, width: 2),
         ),
         contentPadding: EdgeInsets.symmetric(
           horizontal: isTablet ? 20 : 16,
@@ -412,14 +406,14 @@ class _LoginScreenState extends State<LoginScreen>
       height: isTablet ? 64 : 56,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [const Color(0xFFFF6B6B), const Color(0xFFFF8E8E)],
+          colors: [AppColors.primary, AppColors.primaryLight],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
+            color: AppColors.primary.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -435,10 +429,14 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
         child: _isLoading
-            ? CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
-                value: isTablet ? null : null,
+            ? SizedBox(
+                width: isTablet ? 28 : 24,
+                height: isTablet ? 28 : 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 3,
+                  strokeCap: StrokeCap.round,
+                ),
               )
             : Text(
                 'Login',
@@ -456,18 +454,18 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildDivider() {
     return Row(
       children: [
-        Expanded(child: Container(height: 1, color: Colors.grey[300])),
+        Expanded(child: Container(height: 1, color: AppColors.textLight)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'OR',
             style: TextStyle(
-              color: Colors.grey[600],
+              color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
         ),
-        Expanded(child: Container(height: 1, color: Colors.grey[300])),
+        Expanded(child: Container(height: 1, color: AppColors.textLight)),
       ],
     );
   }
@@ -478,7 +476,7 @@ class _LoginScreenState extends State<LoginScreen>
       children: [
         Text(
           "Don't have an account? ",
-          style: TextStyle(color: Colors.grey[600], fontSize: 16),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
         ),
         GestureDetector(
           onTap: () {
@@ -487,10 +485,10 @@ class _LoginScreenState extends State<LoginScreen>
               MaterialPageRoute(builder: (context) => const SignupScreen()),
             );
           },
-          child: const Text(
+          child: Text(
             'Sign Up',
             style: TextStyle(
-              color: Color(0xFFFF6B6B),
+              color: AppColors.primary,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),

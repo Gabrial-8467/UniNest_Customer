@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
 import '../widgets/canteen_card.dart';
 import '../widgets/product_card.dart';
@@ -143,17 +144,16 @@ class _HomeScreenState extends State<HomeScreen> {
         return false;
       }
 
-      return _matchesCategory(name, description);
+      return _matchesCategory(product['category']);
     }).toList();
   }
 
-  bool _matchesCategory(String name, String description) {
+  bool _matchesCategory(String? productCategory) {
     if (selectedCategory == 'All') {
       return true;
     }
 
-    final text = '$name $description';
-    return text.toLowerCase().contains(selectedCategory.toLowerCase());
+    return productCategory?.toLowerCase() == selectedCategory.toLowerCase();
   }
 
   @override
@@ -171,14 +171,20 @@ class _HomeScreenState extends State<HomeScreen> {
           allCanteens,
         );
 
+        debugPrint(
+          '📊 Home: ${appState.products.length} total products, ${products.length} after filtering',
+        );
+        debugPrint('📊 Categories: ${appState.categories}');
+        debugPrint('📊 Selected category: $selectedCategory');
+
         return Scaffold(
-          backgroundColor: const Color(0xFFF8F9FA),
+          backgroundColor: AppColors.background,
           appBar: _buildAppBar(appState),
           body: RefreshIndicator(
             onRefresh: () async {
               await appState.refreshAllData();
             },
-            color: const Color(0xFFFF6B6B),
+            color: AppColors.primary,
             child: CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(child: _buildSearchBar()),
@@ -193,8 +199,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFFFF6B6B),
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                          strokeWidth: 4,
+                          strokeCap: StrokeCap.round,
+                        ),
                       ),
                     ),
                   )
@@ -210,7 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   PreferredSizeWidget _buildAppBar(CampusAppState appState) {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       elevation: 0,
       title: GestureDetector(
         onTap: _onLogoTap,
@@ -219,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF6B6B),
+                color: AppColors.primary,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
@@ -230,9 +242,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 12),
             const Text(
-              'Campus Eats',
+              'UNINEST',
               style: TextStyle(
-                color: Color(0xFF2D3436),
+                color: AppColors.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -249,9 +261,9 @@ class _HomeScreenState extends State<HomeScreen> {
       child: TextField(
         decoration: InputDecoration(
           hintText: 'Search products or canteens...',
-          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+          prefixIcon: const Icon(Icons.search, color: AppColors.textLight),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppColors.surface,
           contentPadding: const EdgeInsets.symmetric(
             vertical: 12,
             horizontal: 16,
@@ -266,7 +278,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFFF6B6B), width: 2),
+            borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
         ),
         onChanged: (value) {
@@ -295,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF2D3436),
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 10),
@@ -308,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Color(0xFFFF6B6B),
+                            color: AppColors.primary,
                           ),
                         ),
                       )
@@ -334,13 +346,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? const Color(0xFFFF6B6B)
-                                    : Colors.white,
+                                    ? AppColors.primary
+                                    : AppColors.surface,
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
                                   color: isSelected
-                                      ? const Color(0xFFFF6B6B)
-                                      : Colors.grey[300]!,
+                                      ? AppColors.primary
+                                      : AppColors.textLight,
                                 ),
                               ),
                               child: Row(
@@ -351,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     size: 16,
                                     color: isSelected
                                         ? Colors.white
-                                        : const Color(0xFF2D3436),
+                                        : AppColors.textPrimary,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
@@ -359,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     style: TextStyle(
                                       color: isSelected
                                           ? Colors.white
-                                          : const Color(0xFF2D3436),
+                                          : AppColors.textPrimary,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
                                     ),
@@ -405,22 +417,22 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3CD),
+        color: AppColors.accentLight.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFFEAA7)),
+        border: Border.all(color: AppColors.accent),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.warning_amber_rounded,
-            color: Color(0xFF856404),
+            color: AppColors.accentDark,
             size: 20,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(color: Color(0xFF856404), fontSize: 14),
+              style: const TextStyle(color: AppColors.accentDark, fontSize: 14),
             ),
           ),
         ],
@@ -435,21 +447,25 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.grey),
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 64,
+              color: AppColors.textLight,
+            ),
             const SizedBox(height: 12),
             Text(
               title,
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3436),
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -460,7 +476,7 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF6B6B),
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -488,7 +504,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2D3436),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const Spacer(),
@@ -502,7 +518,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                     icon: const Icon(
                       Icons.filter_alt_off_outlined,
-                      color: Color(0xFF636E72),
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 TextButton(
@@ -524,9 +540,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 86,
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey[300]!),
+                    border: Border.all(color: AppColors.textLight),
                   ),
                   alignment: Alignment.center,
                   child: Column(
@@ -534,13 +550,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       const Icon(
                         Icons.storefront_outlined,
-                        color: Colors.grey,
+                        color: AppColors.textLight,
                         size: 24,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'No canteens available',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -563,6 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         rating: (canteen['rating'] as num?)?.toDouble() ?? 0,
                         isOpen: canteen['isOpen'] == true,
                         isSelected: isSelected,
+                        imageUrl: canteen['imageUrl']?.toString(),
                         onTap: () {
                           Navigator.push(
                             context,
@@ -601,7 +621,9 @@ class _HomeScreenState extends State<HomeScreen> {
             productId: (product['id'] ?? '').toString(),
             name: (product['name'] ?? 'Product Name').toString(),
             price: (product['price'] as num?)?.toDouble() ?? 0,
-            imageUrl: (product['imageUrl'] ?? '').toString(),
+            imageUrl: product['imageUrl'] is Map
+                ? product['imageUrl']['url'] ?? ''
+                : (product['imageUrl'] ?? '').toString(),
             canteenName: (product['canteenName'] ?? 'Unknown').toString(),
             rating: (product['rating'] as num?)?.toDouble() ?? 0,
             reviewCount: (product['reviewCount'] as num?)?.toInt() ?? 0,

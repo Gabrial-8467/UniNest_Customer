@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import '../config/api_endpoints.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  static String get _baseUrl => AppConfig.getSecureBaseUrl();
+  static String get _baseUrl => AppConfig.getPublicApiBaseUrl();
+  static String get _publicBaseUrl => AppConfig.getPublicApiBaseUrl();
 
   // Common headers
   static Map<String, String> _getHeaders({String? token}) {
@@ -29,9 +31,14 @@ class ApiService {
     Map<String, dynamic>? body,
     String? token,
     Map<String, String>? queryParams,
+    bool usePublicBaseUrl = false,
   }) async {
     try {
-      final uri = _buildUri(endpoint, queryParams: queryParams);
+      final uri = _buildUri(
+        endpoint,
+        queryParams: queryParams,
+        usePublicBaseUrl: usePublicBaseUrl,
+      );
 
       debugPrint('🔍 API Request: $method $uri');
       if (body != null) {
@@ -112,10 +119,12 @@ class ApiService {
   static Uri _buildUri(
     String endpoint, {
     Map<String, String>? queryParams,
+    bool usePublicBaseUrl = false,
   }) {
-    final normalizedBase = _baseUrl.endsWith('/')
-        ? _baseUrl.substring(0, _baseUrl.length - 1)
-        : _baseUrl;
+    final baseUrl = usePublicBaseUrl ? _publicBaseUrl : _baseUrl;
+    final normalizedBase = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
     final normalizedEndpoint = endpoint.startsWith('/')
         ? endpoint.substring(1)
         : endpoint;
@@ -155,7 +164,7 @@ class ApiService {
   }) async {
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/auth/register',
+      endpoint: ApiEndpoints.register,
       body: {
         'name': name,
         'email': email,
@@ -173,7 +182,7 @@ class ApiService {
   }) async {
     final result = await _makeRequest(
       method: 'POST',
-      endpoint: '/auth/login',
+      endpoint: ApiEndpoints.login,
       body: {'email': email, 'password': password},
     );
 
@@ -193,15 +202,15 @@ class ApiService {
   static Future<Map<String, dynamic>> refreshToken(String refreshToken) async {
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/auth/refresh',
-      body: {'refreshToken': refreshToken},
+      endpoint: ApiEndpoints.refreshToken,
+      token: refreshToken,
     );
   }
 
   static Future<Map<String, dynamic>> forgotPassword(String email) async {
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/auth/forgot-password',
+      endpoint: ApiEndpoints.forgotPassword,
       body: {'email': email},
     );
   }
@@ -212,7 +221,7 @@ class ApiService {
   }) async {
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/auth/reset-password',
+      endpoint: ApiEndpoints.resetPassword,
       body: {'token': token, 'password': password},
     );
   }
@@ -220,7 +229,7 @@ class ApiService {
   static Future<Map<String, dynamic>> verifyEmail(String token) async {
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/auth/verify-email',
+      endpoint: ApiEndpoints.verifyEmail,
       body: {'token': token},
     );
   }
@@ -228,7 +237,7 @@ class ApiService {
   static Future<Map<String, dynamic>> logout(String token) async {
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/auth/logout',
+      endpoint: ApiEndpoints.logout,
       token: token,
     );
   }
@@ -240,7 +249,7 @@ class ApiService {
   }) async {
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/auth/change-password',
+      endpoint: ApiEndpoints.changePassword,
       token: token,
       body: {'currentPassword': currentPassword, 'newPassword': newPassword},
     );
@@ -249,7 +258,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getProfile(String token) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/auth/profile',
+      endpoint: ApiEndpoints.profile,
       token: token,
     );
   }
@@ -272,7 +281,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'PUT',
-      endpoint: '/auth/profile',
+      endpoint: ApiEndpoints.profile,
       token: token,
       body: body,
     );
@@ -281,7 +290,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getAuthStatus(String token) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/auth/status',
+      endpoint: ApiEndpoints.authStatus,
       token: token,
     );
   }
@@ -289,7 +298,7 @@ class ApiService {
   static Future<Map<String, dynamic>> resendVerification(String token) async {
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/auth/resend-verification',
+      endpoint: ApiEndpoints.resendVerification,
       token: token,
     );
   }
@@ -297,7 +306,7 @@ class ApiService {
   static Future<Map<String, dynamic>> deleteAccount(String token) async {
     return await _makeRequest(
       method: 'DELETE',
-      endpoint: '/auth/account',
+      endpoint: ApiEndpoints.deleteAccount,
       token: token,
     );
   }
@@ -331,9 +340,10 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/vendors',
+      endpoint: ApiEndpoints.vendors,
       token: token,
       queryParams: queryParams,
+      usePublicBaseUrl: true,
     );
   }
 
@@ -368,9 +378,10 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/vendors/nearby',
+      endpoint: ApiEndpoints.nearbyVendors,
       token: token,
       queryParams: queryParams,
+      usePublicBaseUrl: true,
     );
   }
 
@@ -380,8 +391,9 @@ class ApiService {
   }) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/vendors/$vendorId',
+      endpoint: ApiEndpoints.vendorById(vendorId),
       token: token,
+      usePublicBaseUrl: true,
     );
   }
 
@@ -397,6 +409,8 @@ class ApiService {
     String? sortBy,
     String? order,
     bool? available,
+    int? page,
+    int? limit,
   }) async {
     final queryParams = <String, String>{};
     if (vendor != null) queryParams['vendor'] = vendor;
@@ -409,14 +423,17 @@ class ApiService {
     }
     if (rating != null) queryParams['rating'] = rating.toString();
     if (sortBy != null) queryParams['sortBy'] = sortBy;
-    if (order != null) queryParams['order'] = order;
-    if (available != null) queryParams['available'] = available.toString();
+    if (order != null) queryParams['sortOrder'] = order;
+    if (available != null) queryParams['isAvailable'] = available.toString();
+    if (page != null) queryParams['page'] = page.toString();
+    if (limit != null) queryParams['limit'] = limit.toString();
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/products',
+      endpoint: ApiEndpoints.products,
       token: token,
       queryParams: queryParams,
+      usePublicBaseUrl: true,
     );
   }
 
@@ -449,43 +466,45 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/products/featured',
+      endpoint: ApiEndpoints.featuredProducts,
       token: token,
       queryParams: queryParams,
+      usePublicBaseUrl: true,
     );
   }
 
   static Future<Map<String, dynamic>> getProductById({
-    required String token,
+    String? token,
     required String productId,
   }) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/products/$productId',
+      endpoint: ApiEndpoints.productById(productId),
       token: token,
+      usePublicBaseUrl: true,
     );
   }
 
   static Future<Map<String, dynamic>> createOrder({
     required String token,
-    required String vendor,
     required List<Map<String, dynamic>> items,
-    Map<String, dynamic>? delivery,
+    required Map<String, dynamic> deliveryAddress,
     required String paymentMethod,
+    String? fulfillmentType,
     String? couponCode,
   }) async {
     final body = <String, dynamic>{
-      'vendor': vendor,
       'items': items,
       'paymentMethod': paymentMethod,
+      'deliveryAddress': deliveryAddress,
     };
 
-    if (delivery != null) body['delivery'] = delivery;
+    if (fulfillmentType != null) body['fulfillmentType'] = fulfillmentType;
     if (couponCode != null) body['couponCode'] = couponCode;
 
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/orders',
+      endpoint: ApiEndpoints.orders,
       token: token,
       body: body,
     );
@@ -504,7 +523,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/orders',
+      endpoint: ApiEndpoints.orders,
       token: token,
       queryParams: queryParams,
     );
@@ -516,7 +535,7 @@ class ApiService {
   }) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/orders/$orderId',
+      endpoint: ApiEndpoints.orderById(orderId),
       token: token,
     );
   }
@@ -527,8 +546,8 @@ class ApiService {
     required String reason,
   }) async {
     return await _makeRequest(
-      method: 'PATCH',
-      endpoint: '/orders/$orderId/cancel',
+      method: 'PUT',
+      endpoint: ApiEndpoints.cancelOrder(orderId),
       token: token,
       body: {'reason': reason},
     );
@@ -542,23 +561,25 @@ class ApiService {
     int? delivery,
     String? review,
   }) async {
-    final body = <String, dynamic>{'food': food, 'overall': overall};
-
-    if (delivery != null) body['delivery'] = delivery;
-    if (review != null) body['review'] = review;
-
     return await _makeRequest(
       method: 'POST',
-      endpoint: '/orders/$orderId/rate',
+      endpoint: ApiEndpoints.reviewOrder(orderId),
       token: token,
-      body: body,
+      body: {
+        'rating': {
+          'food': food,
+          'delivery': delivery ?? overall,
+          'experience': overall,
+        },
+        'comment': review,
+      },
     );
   }
 
   static Future<Map<String, dynamic>> getOrderStatistics(String token) async {
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/orders/stats',
+      endpoint: '${ApiEndpoints.orders}/stats',
       token: token,
     );
   }
@@ -573,17 +594,95 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: '/search',
+      endpoint: ApiEndpoints.search,
+      token: token,
+      queryParams: queryParams,
+      usePublicBaseUrl: true,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getCategories(String? token) async {
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: ApiEndpoints.categories,
+      token: token,
+      usePublicBaseUrl: true,
+    );
+  }
+
+  // ==================== NOTIFICATION ENDPOINTS ====================
+
+  static Future<Map<String, dynamic>> getNotifications({
+    required String token,
+    int? page,
+    int? limit,
+    bool? isRead,
+    String? type,
+  }) async {
+    final queryParams = <String, String>{};
+    if (page != null) queryParams['page'] = page.toString();
+    if (limit != null) queryParams['limit'] = limit.toString();
+    if (isRead != null) queryParams['isRead'] = isRead.toString();
+    if (type != null) queryParams['type'] = type;
+
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: ApiEndpoints.notifications,
       token: token,
       queryParams: queryParams,
     );
   }
 
-  static Future<Map<String, dynamic>> getCategories(String token) async {
+  static Future<Map<String, dynamic>> markAllNotificationsRead(
+    String token,
+  ) async {
     return await _makeRequest(
-      method: 'GET',
-      endpoint: '/categories',
+      method: 'PUT',
+      endpoint: ApiEndpoints.markNotificationsRead,
       token: token,
+    );
+  }
+
+  static Future<Map<String, dynamic>> markNotificationAsRead({
+    required String token,
+    required String notificationId,
+  }) async {
+    return await _makeRequest(
+      method: 'PUT',
+      endpoint: '${ApiEndpoints.notifications}/$notificationId/read',
+      token: token,
+    );
+  }
+
+  // ==================== RAZORPAY PAYMENT ENDPOINTS ====================
+
+  static Future<Map<String, dynamic>> createRazorpayOrder({
+    required String token,
+    required String orderId,
+  }) async {
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '${ApiEndpoints.orderById(orderId)}/payment/razorpay-order',
+      token: token,
+    );
+  }
+
+  static Future<Map<String, dynamic>> verifyRazorpayPayment({
+    required String token,
+    required String orderId,
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    return await _makeRequest(
+      method: 'POST',
+      endpoint: '${ApiEndpoints.orderById(orderId)}/payment/verify',
+      token: token,
+      body: {
+        'razorpayOrderId': razorpayOrderId,
+        'razorpayPaymentId': razorpayPaymentId,
+        'razorpaySignature': razorpaySignature,
+      },
     );
   }
 
@@ -600,7 +699,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> healthCheck() async {
-    return await _makeRequest(method: 'GET', endpoint: '/health');
+    return await _makeRequest(method: 'GET', endpoint: ApiEndpoints.health);
   }
 
   static String getCurrentBaseUrl() {

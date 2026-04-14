@@ -136,7 +136,7 @@ class Helpers {
       case 'pending':
         return Colors.orange;
       case 'confirmed':
-        return Colors.blue;
+        return Colors.orange;
       case 'preparing':
         return Colors.purple;
       case 'ready':

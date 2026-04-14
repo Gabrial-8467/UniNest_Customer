@@ -468,7 +468,7 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
         lowerCaseMessage.length < 10) {
       final greetings = [
         'Hello! 👋 How can I make your campus dining experience better today?',
-        'Hi there! 🍕 I\'m your Campus Eats assistant. What can I help you with?',
+        'Hi there! 🍕 I\'m your UNINEST assistant. What can I help you with?',
         'Welcome! 🎓 I\'m here to help with orders, payments, delivery, and more!',
       ];
 
@@ -481,7 +481,7 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
       return '${greetings[DateTime.now().millisecond % greetings.length]}\n\n${helps[DateTime.now().millisecond % helps.length]}';
     }
 
-    return '🤖 **AI Assistant Ready**\n\nI\'m here to help with all aspects of Campus Eats! Here\'s what I can do:\n\n📋 **Order Management:**\n• Track real-time order status\n• Modify or cancel orders\n• Order history and receipts\n\n💳 **Payment Support:**\n• Multiple payment methods\n• Refund processing\n• Payment failure troubleshooting\n\n🚚 **Delivery Services:**\n• Live delivery tracking\n• Delivery time estimates\n• Special delivery instructions\n\n🍽 **Food & Menu:**\n• Dietary restrictions (vegan, halal)\n• Allergen information\n• Popular recommendations\n\n👤 **Account Help:**\n• Profile management\n• Campus verification\n• Password reset assistance\n\n📞 **24/7 Support:**\n• Human agent connection\n• Emergency support\n• Technical troubleshooting\n\n**Quick Commands:**\n• "Track order [ID]" - Check status\n• "Cancel order [ID]" - Cancel order\n• "Payment help" - Payment issues\n• "Menu [canteen]" - Check menu\n\nType your specific question or use a quick command above! 🚀';
+    return '🤖 **AI Assistant Ready**\n\nI\'m here to help with all aspects of UNINEST! Here\'s what I can do:\n\n📋 **Order Management:**\n• Track real-time order status\n• Modify or cancel orders\n• Order history and receipts\n\n💳 **Payment Support:**\n• Multiple payment methods\n• Refund processing\n• Payment failure troubleshooting\n\n🚚 **Delivery Services:**\n• Live delivery tracking\n• Delivery time estimates\n• Special delivery instructions\n\n🍽 **Food & Menu:**\n• Dietary restrictions (vegan, halal)\n• Allergen information\n• Popular recommendations\n\n👤 **Account Help:**\n• Profile management\n• Campus verification\n• Password reset assistance\n\n📞 **24/7 Support:**\n• Human agent connection\n• Emergency support\n• Technical troubleshooting\n\n**Quick Commands:**\n• "Track order [ID]" - Check status\n• "Cancel order [ID]" - Cancel order\n• "Payment help" - Payment issues\n• "Menu [canteen]" - Check menu\n\nType your specific question or use a quick command above! 🚀';
   }
 
   void _scrollToBottom() {

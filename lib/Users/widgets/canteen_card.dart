@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/app_theme.dart';
+
 class CanteenCard extends StatelessWidget {
   final String name;
   final String location;
@@ -7,6 +9,7 @@ class CanteenCard extends StatelessWidget {
   final bool isOpen;
   final bool isSelected;
   final VoidCallback onTap;
+  final String? imageUrl;
 
   const CanteenCard({
     super.key,
@@ -16,6 +19,7 @@ class CanteenCard extends StatelessWidget {
     required this.isOpen,
     required this.isSelected,
     required this.onTap,
+    this.imageUrl,
   });
 
   @override
@@ -29,11 +33,11 @@ class CanteenCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFFF6B6B).withValues(alpha: 0.08)
-              : Colors.white,
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? const Color(0xFFFF6B6B) : Colors.grey[300]!,
+            color: isSelected ? AppColors.primary : AppColors.textLight,
             width: isSelected ? 1.4 : 1,
           ),
           boxShadow: [
@@ -49,18 +53,18 @@ class CanteenCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF6B6B).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.storefront_rounded,
-                    size: 18,
-                    color: Color(0xFFFF6B6B),
-                  ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: imageUrl != null && imageUrl!.isNotEmpty
+                      ? Image.network(
+                          imageUrl!,
+                          width: 34,
+                          height: 34,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildDefaultIcon(),
+                        )
+                      : _buildDefaultIcon(),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -81,9 +85,8 @@ class CanteenCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: (isOpen ? Colors.green : Colors.red).withValues(
-                      alpha: 0.12,
-                    ),
+                    color: (isOpen ? AppColors.success : AppColors.error)
+                        .withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -91,7 +94,7 @@ class CanteenCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: isOpen ? Colors.green : Colors.red,
+                      color: isOpen ? AppColors.success : AppColors.error,
                     ),
                   ),
                 ),
@@ -136,6 +139,22 @@ class CanteenCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDefaultIcon() {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Icon(
+        Icons.storefront_rounded,
+        size: 18,
+        color: AppColors.primary,
       ),
     );
   }

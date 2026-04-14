@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/app_theme.dart';
 import '../../utils/utils.dart';
 
 class ProductCard extends StatelessWidget {
@@ -105,7 +106,7 @@ class ProductCard extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Colors.grey[300]!, Colors.grey[400]!],
+                      colors: [AppColors.textLight, AppColors.textSecondary],
                     ),
                   ),
                   child: const Icon(
@@ -123,7 +124,7 @@ class ProductCard extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Colors.grey[100]!, Colors.grey[200]!],
+                      colors: [AppColors.background, AppColors.textLight],
                     ),
                   ),
                   child: Center(
@@ -133,7 +134,7 @@ class ProductCard extends StatelessWidget {
                                 loadingProgress.expectedTotalBytes!
                           : null,
                       strokeWidth: 3,
-                      color: const Color(0xFFFF6B6B),
+                      color: AppColors.primary,
                     ),
                   ),
                 );
@@ -153,11 +154,11 @@ class ProductCard extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green,
+                      color: AppColors.success,
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.green.withValues(alpha: 0.3),
+                          color: AppColors.success.withValues(alpha: 0.3),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -180,11 +181,11 @@ class ProductCard extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.red,
+                      color: AppColors.error,
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.red.withValues(alpha: 0.3),
+                          color: AppColors.error.withValues(alpha: 0.3),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -225,7 +226,9 @@ class ProductCard extends StatelessWidget {
                 child: Icon(
                   isFavorite ? Icons.favorite : Icons.favorite_border,
                   size: 16,
-                  color: isFavorite ? Colors.red : Colors.grey[600],
+                  color: isFavorite
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
                 ),
               ),
             ),
@@ -253,7 +256,7 @@ class ProductCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+        color: AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -315,7 +318,7 @@ class ProductCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey[600],
+                    color: AppColors.textSecondary,
                     decoration: TextDecoration.lineThrough,
                   ),
                 ),
@@ -326,21 +329,21 @@ class ProductCard extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.star, size: 14, color: Colors.amber[400]),
+            Icon(Icons.star, size: 14, color: AppColors.accent),
             const SizedBox(width: 2),
             Text(
               rating.toStringAsFixed(1),
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF2D3436),
+                color: AppColors.textPrimary,
               ),
             ),
             if (reviewCount > 0) ...[
               const SizedBox(width: 2),
               Text(
                 '($reviewCount)',
-                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
               ),
             ],
           ],
@@ -359,7 +362,7 @@ class ProductCard extends StatelessWidget {
             child: OutlinedButton(
               onPressed: onTap,
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFFF6B6B), width: 1),
+                side: const BorderSide(color: AppColors.primary, width: 1),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -388,7 +391,7 @@ class ProductCard extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onAddToCart,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF6B6B),
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -444,7 +447,9 @@ class ProductGrid extends StatelessWidget {
           productId: product['id'] ?? '',
           name: product['name'] ?? 'Product Name',
           price: (product['price'] ?? 0.0).toDouble(),
-          imageUrl: product['imageUrl'] ?? '',
+          imageUrl: product['imageUrl'] is Map
+              ? product['imageUrl']['url'] ?? ''
+              : (product['imageUrl'] ?? '').toString(),
           canteenName: product['canteenName'] ?? 'Unknown',
           rating: (product['rating'] ?? 0.0).toDouble(),
           reviewCount: product['reviewCount'] ?? 0,
@@ -490,7 +495,9 @@ class ProductList extends StatelessWidget {
           productId: product['id'] ?? '',
           name: product['name'] ?? 'Product Name',
           price: (product['price'] ?? 0.0).toDouble(),
-          imageUrl: product['imageUrl'] ?? '',
+          imageUrl: product['imageUrl'] is Map
+              ? product['imageUrl']['url'] ?? ''
+              : (product['imageUrl'] ?? '').toString(),
           canteenName: product['canteenName'] ?? 'Unknown',
           rating: (product['rating'] ?? 0.0).toDouble(),
           reviewCount: product['reviewCount'] ?? 0,

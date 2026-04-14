@@ -16,12 +16,58 @@ class CampusAppState extends ChangeNotifier {
     _restoreOrdersFromStorage();
     _startStatusUpdateTimer();
     _initializeBackendData();
+    startNotificationPolling();
   }
 
   @override
   void dispose() {
     _statusUpdateTimer?.cancel();
+    _notificationTimer?.cancel();
     super.dispose();
+  }
+
+  // Start periodic notification count fetch
+  void startNotificationPolling() {
+    _notificationTimer?.cancel();
+    _fetchUnreadNotificationCount();
+    _notificationTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _fetchUnreadNotificationCount(),
+    );
+  }
+
+  // Fetch unread notification count
+  Future<void> _fetchUnreadNotificationCount() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) return;
+
+      final result = await ApiService.getNotifications(
+        token: token,
+        page: 1,
+        limit: 1,
+        isRead: false,
+      );
+
+      if (result['success'] == true) {
+        final data = result['data'];
+        // API returns unreadCount directly, or fallback to pagination.total
+        final total = data['unreadCount'] ?? data['pagination']?['total'] ?? 0;
+
+        if (_unreadNotificationCount != total) {
+          _unreadNotificationCount = total;
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching notification count: $e');
+    }
+  }
+
+  // Update notification count (called after viewing notifications)
+  void updateNotificationCount(int count) {
+    _unreadNotificationCount = count;
+    notifyListeners();
   }
 
   final List<Map<String, dynamic>> _canteens = [];
@@ -35,87 +81,126 @@ class CampusAppState extends ChangeNotifier {
   bool _isLoadingCategories = false;
   bool _hasConnectionError = false;
   String _errorMessage = '';
+  int _unreadNotificationCount = 0;
+  Timer? _notificationTimer;
 
   bool get isLoadingProducts => _isLoadingProducts;
   bool get isLoadingCanteens => _isLoadingCanteens;
   bool get isLoadingCategories => _isLoadingCategories;
   bool get hasConnectionError => _hasConnectionError;
   String get errorMessage => _errorMessage;
+  int get unreadNotificationCount => _unreadNotificationCount;
+
+  // Helper to extract URL string from Map or String
+  String? _extractImageUrl(dynamic imageField) {
+    if (imageField == null) return null;
+    if (imageField is Map<String, dynamic>) {
+      return imageField['url']?.toString();
+    }
+    return imageField.toString();
+  }
 
   Future<void> _initializeBackendData() async {
-    final token = await AuthService.getToken();
-    if (token == null || token.isEmpty) {
-      _setGuestModeDefaults();
-      return;
-    }
-
     await refreshAllData();
   }
 
-  void _setGuestModeDefaults() {
-    _hasConnectionError = false;
-    _errorMessage = '';
-    _categories
-      ..clear()
-      ..addAll(['All', 'Burgers', 'Pizza', 'Drinks', 'Desserts', 'Snacks']);
-    notifyListeners();
-  }
-
-  // Fetch products from backend API
+  // Fetch products from backend API (all pages)
   Future<void> _fetchProductsFromBackend() async {
     _isLoadingProducts = true;
     notifyListeners();
 
     try {
-      debugPrint('🔍 AppState: Fetching products from backend...');
+      debugPrint('🔍 AppState: Fetching all products from backend...');
       final token = await AuthService.getToken();
-      if (token == null || token.isEmpty) {
-        _products.clear();
-        _hasConnectionError = false;
-        _errorMessage = '';
-        return;
-      }
+      _products.clear();
 
-      final response = await ApiService.getProducts(token: token);
+      int page = 1;
+      const int limit = 100;
+      bool hasMorePages = true;
 
-      if (response['success'] == true) {
-        final List<dynamic> productsData = response['data'];
-        _products.clear();
+      while (hasMorePages) {
+        final response = await ApiService.getProducts(
+          token: token,
+          page: page,
+          limit: limit,
+        );
 
-        for (final product in productsData) {
-          if (product is Map<String, dynamic>) {
-            // Convert backend product format to app format
-            final appProduct = {
-              'id':
-                  product['_id']?.toString() ?? product['id']?.toString() ?? '',
-              'name': product['name'] ?? '',
-              'description': product['description'] ?? '',
-              'price': (product['price'] as num?)?.toDouble() ?? 0.0,
-              'category': product['category'] ?? '',
-              'imageUrl': product['image'] ?? product['imageUrl'] ?? '',
-              'stock': product['stock'] ?? 0,
-              'canteenId': 'default', // Add default canteen ID
-              'canteenName': 'Main Canteen', // Add default canteen name
-              'rating': 4.0, // Add default rating
-              'reviewCount': 10, // Add default review count
-              'isFavorite': false, // Add default favorite status
-            };
-            _products.add(appProduct);
+        if (response['success'] == true) {
+          final data = response['data'];
+          final List<dynamic> productsData = data is Map<String, dynamic>
+              ? (data['products'] as List<dynamic>? ?? const [])
+              : (data as List<dynamic>? ?? const []);
+
+          if (productsData.isEmpty) {
+            hasMorePages = false;
+            break;
           }
-        }
 
-        debugPrint(
-          '✅ AppState: Loaded ${_products.length} products from backend',
-        );
-        _hasConnectionError = false;
-        _errorMessage = '';
-      } else {
-        debugPrint(
-          '❌ AppState: Failed to fetch products: ${response['error']}',
-        );
-        _hasConnectionError = true;
-        _errorMessage = response['error'] ?? 'Failed to load products';
+          for (final product in productsData) {
+            if (product is Map<String, dynamic>) {
+              final vendorData = product['vendor'];
+              // Convert backend product format to app format
+              final appProduct = {
+                'id':
+                    product['_id']?.toString() ??
+                    product['id']?.toString() ??
+                    '',
+                'name': product['name'] ?? '',
+                'description': product['description'] ?? '',
+                'price': (product['price'] as num?)?.toDouble() ?? 0.0,
+                'category': product['category'] ?? '',
+                'imageUrl':
+                    _extractImageUrl(product['image']) ??
+                    _extractImageUrl(product['imageUrl']) ??
+                    ((product['images'] is List &&
+                            (product['images'] as List).isNotEmpty)
+                        ? _extractImageUrl(product['images'][0])
+                        : ''),
+                'stock':
+                    (product['inStock'] as num?)?.toInt() ??
+                    (product['stock'] as num?)?.toInt() ??
+                    0,
+                'canteenId': vendorData is Map<String, dynamic>
+                    ? (vendorData['_id']?.toString() ?? '')
+                    : '',
+                'canteenName': vendorData is Map<String, dynamic>
+                    ? (vendorData['businessName'] ?? 'Main Canteen')
+                    : 'Main Canteen',
+                'rating': (product['rating'] as num?)?.toDouble() ?? 0.0,
+                'reviewCount': (product['reviewCount'] as num?)?.toInt() ?? 0,
+                'isFavorite': false,
+                'vendor': vendorData,
+              };
+              _products.add(appProduct);
+            }
+          }
+
+          // Check if we've fetched all products
+          final pagination = data is Map<String, dynamic>
+              ? data['pagination']
+              : null;
+          final totalPages = pagination is Map<String, dynamic>
+              ? (pagination['pages'] as num?)?.toInt() ?? 1
+              : 1;
+
+          if (page >= totalPages || productsData.length < limit) {
+            hasMorePages = false;
+          } else {
+            page++;
+          }
+        } else {
+          debugPrint(
+            '❌ AppState: Failed to fetch products page $page: ${response['error']}',
+          );
+          hasMorePages = false;
+        }
       }
+
+      debugPrint(
+        '✅ AppState: Loaded ${_products.length} total products from backend',
+      );
+      _hasConnectionError = false;
+      _errorMessage = '';
     } catch (e) {
       debugPrint('💥 AppState: Error fetching products: $e');
       _hasConnectionError = true;
@@ -138,8 +223,10 @@ class CampusAppState extends ChangeNotifier {
 
   // Public method to refresh all data
   Future<void> refreshAllData() async {
+    // Fetch products first (canteens and categories depend on products)
+    await _fetchProductsFromBackend();
+    // Then extract canteens and categories from products
     await Future.wait([
-      _fetchProductsFromBackend(),
       _fetchCanteensFromBackend(),
       _fetchCategoriesFromBackend(),
     ]);
@@ -174,16 +261,13 @@ class CampusAppState extends ChangeNotifier {
           '✅ AppState: Loaded ${_categories.length} categories from products',
         );
       } else {
-        // If no products, try to fetch categories from products endpoint
         final token = await AuthService.getToken();
-        if (token == null || token.isEmpty) {
-          _setGuestModeDefaults();
-          return;
-        }
-
         final response = await ApiService.getProducts(token: token);
         if (response['success'] == true) {
-          final List<dynamic> productsData = response['data'];
+          final data = response['data'];
+          final List<dynamic> productsData = data is Map<String, dynamic>
+              ? (data['products'] as List<dynamic>? ?? const [])
+              : (data as List<dynamic>? ?? const []);
           final Set<String> uniqueCategories = {};
 
           for (final product in productsData) {
@@ -231,34 +315,44 @@ class CampusAppState extends ChangeNotifier {
       debugPrint('🔍 AppState: Fetching canteens from backend...');
 
       final token = await AuthService.getToken();
-      if (token == null || token.isEmpty) {
-        _canteens.clear();
-        _hasConnectionError = false;
-        _errorMessage = '';
-        return;
-      }
-
       final response = await ApiService.getCanteens(token: token);
 
       if (response['success'] == true) {
-        final List<dynamic> canteensData = response['data'];
+        final data = response['data'];
+        final List<dynamic> vendorsData = data is Map<String, dynamic>
+            ? (data['vendors'] as List<dynamic>? ?? const [])
+            : (data as List<dynamic>? ?? const []);
         _canteens.clear();
 
-        for (final canteen in canteensData) {
-          if (canteen is Map<String, dynamic>) {
+        for (final vendor in vendorsData) {
+          if (vendor is Map<String, dynamic>) {
+            final location = vendor['location'];
+            final rating = vendor['rating'];
+            final user = vendor['user'];
+
             // Convert backend canteen format to app format
             final appCanteen = {
-              'id':
-                  canteen['_id']?.toString() ?? canteen['id']?.toString() ?? '',
-              'name': canteen['name'] ?? '',
-              'location': canteen['location'] ?? '',
-              'rating': (canteen['rating'] as num?)?.toDouble() ?? 0.0,
-              'reviewCount': (canteen['reviewCount'] as num?)?.toInt() ?? 0,
-              'isOpen': canteen['isOpen'] ?? true,
-              'imageUrl': canteen['image'] ?? canteen['imageUrl'] ?? '',
-              'description': canteen['description'] ?? '',
-              'openingTime': canteen['openingTime'] ?? '08:00',
-              'closingTime': canteen['closingTime'] ?? '20:00',
+              'id': vendor['_id']?.toString() ?? vendor['id']?.toString() ?? '',
+              'name': vendor['businessName'] ?? '',
+              'location': location is Map<String, dynamic>
+                  ? (location['address'] ??
+                        location['city'] ??
+                        location['landmark'] ??
+                        '')
+                  : (vendor['location'] ?? ''),
+              'rating': rating is Map<String, dynamic>
+                  ? (rating['average'] as num?)?.toDouble() ?? 0.0
+                  : (vendor['rating'] as num?)?.toDouble() ?? 0.0,
+              'reviewCount': rating is Map<String, dynamic>
+                  ? (rating['count'] as num?)?.toInt() ?? 0
+                  : (vendor['reviewCount'] as num?)?.toInt() ?? 0,
+              'isOpen': vendor['status'] == 'active',
+              'imageUrl': user is Map<String, dynamic>
+                  ? (user['avatar'] ?? '')
+                  : (vendor['image'] ?? vendor['imageUrl'] ?? ''),
+              'description': vendor['description'] ?? '',
+              'openingTime': '08:00',
+              'closingTime': '20:00',
             };
             _canteens.add(appCanteen);
           }

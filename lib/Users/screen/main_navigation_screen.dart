@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../state/app_state.dart';
 import 'cart.dart';
 import 'home.dart';
+import 'notifications_screen.dart';
 import 'profile.dart';
 import 'wishlist.dart';
 
@@ -35,10 +36,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         final pages = <Widget>[
           HomeScreen(
             onOpenCart: () => _selectTab(2),
-            onOpenProfile: () => _selectTab(3),
+            onOpenProfile: () => _selectTab(4),
           ),
           const WishlistScreen(),
           CartScreen(showBackButton: false, onBrowseMenu: () => _selectTab(0)),
+          const NotificationsScreen(showBackButton: false),
           const ProfileScreen(showBackButton: false),
         ];
 
@@ -79,6 +81,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   child: const Icon(Icons.shopping_cart),
                 ),
                 label: 'Cart',
+              ),
+              NavigationDestination(
+                icon: Badge(
+                  isLabelVisible: appState.unreadNotificationCount > 0,
+                  label: Text('${appState.unreadNotificationCount}'),
+                  child: const Icon(Icons.notifications_outlined),
+                ),
+                selectedIcon: Badge(
+                  isLabelVisible: appState.unreadNotificationCount > 0,
+                  label: Text('${appState.unreadNotificationCount}'),
+                  child: const Icon(Icons.notifications),
+                ),
+                label: 'Alerts',
               ),
               const NavigationDestination(
                 icon: Icon(Icons.person_outline),

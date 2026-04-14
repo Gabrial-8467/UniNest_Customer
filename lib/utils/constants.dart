@@ -1,6 +1,6 @@
 class AppConstants {
   // App Info
-  static const String appName = 'Campus Eats';
+  static const String appName = 'UNINEST';
   static const String appVersion = '1.0.0';
 
   // UI Constants
@@ -57,7 +57,7 @@ class AppConstants {
   ];
 
   // Payment Methods
-  static const List<String> paymentMethods = ['cash', 'card', 'upi', 'wallet'];
+  static const List<String> paymentMethods = ['cash', 'card', 'upi'];
 
   // User Types
   static const List<String> userTypes = ['customer'];

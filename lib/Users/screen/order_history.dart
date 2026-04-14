@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
 import 'order_tracking.dart';
 
@@ -113,7 +114,7 @@ class OrderHistoryScreen extends StatelessWidget {
         statusColor = Colors.green;
         break;
       case 'Out for Delivery':
-        statusColor = Colors.blue;
+        statusColor = AppColors.primary;
         break;
       case 'Preparing':
       case 'Ready for Pickup':

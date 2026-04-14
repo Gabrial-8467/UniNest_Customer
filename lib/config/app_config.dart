@@ -21,18 +21,13 @@ class AppConfig {
 
   // API Configuration
   static String get baseUrl {
-    final envUrl = dotenv.env['API_BASE_URL'];
+    final envUrl = dotenv.env['API_BASE_URL']?.trim();
     if (envUrl != null && envUrl.isNotEmpty) {
-      return envUrl;
+      return _normalizeBaseUrl(envUrl);
     }
-
-    // Fallback for development
-    if (isDebugMode) {
-      return 'http://192.168.1.18:5000';
-    }
-
-    // Production fallback
-    return 'https://your-production-api.com';
+    throw StateError(
+      'API_BASE_URL is missing in .env. Expected Render backend URL.',
+    );
   }
 
   // Security Settings
@@ -81,17 +76,6 @@ class AppConfig {
   static Duration get receiveTimeout =>
       Duration(seconds: connectionTimeoutSeconds);
 
-  // API endpoints
-  static const String loginEndpoint = '/api/auth/login';
-  static const String registerEndpoint = '/api/auth/register';
-  static const String profileEndpoint = '/api/auth/profile';
-  static const String productsEndpoint = '/api/products';
-  static const String ordersEndpoint = '/api/orders';
-  static const String myOrdersEndpoint = '/api/orders/myorders';
-  static const String uploadEndpoint = '/api/upload';
-  static const String adminUsersEndpoint = '/api/admin/users';
-  static const String adminOrdersEndpoint = '/api/admin/orders';
-
   // Helper method to validate and secure URL
   static String validateAndGetBaseUrl() {
     String url = baseUrl;
@@ -124,6 +108,31 @@ class AppConfig {
     final url = validateAndGetBaseUrl();
     if (enforceHttps && !isSecureUrl(url)) {
       throw Exception('Insecure URL detected. HTTPS is required.');
+    }
+    return url;
+  }
+
+  static String getPublicApiBaseUrl() {
+    final url = getSecureBaseUrl();
+    // Remove trailing /api/customer or /api/public if present since endpoints already include them
+    if (url.endsWith('/api/customer')) {
+      return url.substring(0, url.length - '/api/customer'.length);
+    }
+    if (url.endsWith('/api/public')) {
+      return url.substring(0, url.length - '/api/public'.length);
+    }
+    if (url.endsWith('/api')) {
+      return url.substring(0, url.length - '/api'.length);
+    }
+    if (url.endsWith('/customer')) {
+      return url.substring(0, url.length - '/customer'.length);
+    }
+    return url;
+  }
+
+  static String _normalizeBaseUrl(String url) {
+    if (url.endsWith('/')) {
+      return url.substring(0, url.length - 1);
     }
     return url;
   }

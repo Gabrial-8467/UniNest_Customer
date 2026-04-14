@@ -1,6 +1,6 @@
-# Campus Eats - Library Structure
+# UNINEST - Library Structure
 
-This directory contains the core source code for the Campus Eats Flutter application.
+This directory contains the core source code for the UNINEST Flutter application.
 
 ## 📁 Directory Structure
 

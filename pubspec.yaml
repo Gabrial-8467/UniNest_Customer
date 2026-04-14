@@ -1,4 +1,4 @@
-name: uninest
+name: campus_eats
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -41,6 +41,7 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   flutter_dotenv: ^5.1.0
   crypto: ^3.0.3
+  razorpay_flutter: ^1.3.7
 
 dev_dependencies:
   flutter_test:

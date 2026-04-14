@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
+import '../../../utils/app_theme.dart';
 import '../../../utils/utils.dart';
 
 import 'help_support.dart';
 import 'order_history.dart';
+import 'payment_methods_screen.dart';
 import 'wishlist.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -88,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return const Scaffold(
         backgroundColor: Color(0xFFF8F9FA),
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFFFF6B6B)),
+          child: CircularProgressIndicator(color: AppColors.primary),
         ),
       );
     }
@@ -101,18 +103,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+              Icon(Icons.error_outline, size: 64, color: AppColors.textLight),
               const SizedBox(height: 16),
               Text(
                 errorMessage!,
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _loadUserProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF6B6B),
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('Retry'),
@@ -148,7 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       elevation: 0,
       title: const Text(
         'Profile',
@@ -161,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       leading: widget.showBackButton
           ? IconButton(
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3436)),
+              icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
             )
           : null,
       automaticallyImplyLeading: widget.showBackButton,
@@ -170,7 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           : [
               IconButton(
                 onPressed: _showEditProfileDialog,
-                icon: const Icon(Icons.edit, color: Color(0xFF2D3436)),
+                icon: const Icon(Icons.edit, color: AppColors.textPrimary),
               ),
             ],
     );
@@ -185,11 +187,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             CircleAvatar(
               radius: 40,
-              backgroundColor: const Color(0xFFFF6B6B).withValues(alpha: 0.12),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.12),
               child: const Icon(
                 Icons.person_outline,
                 size: 40,
-                color: Color(0xFFFF6B6B),
+                color: AppColors.primary,
               ),
             ),
             const SizedBox(height: 20),
@@ -207,7 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'Login or create an account to load your profile and access protected backend features.',
               style: TextStyle(
                 fontSize: 15,
-                color: Colors.grey[600],
+                color: AppColors.textSecondary,
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
@@ -257,7 +259,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFFF6B6B), width: 3),
+                border: Border.all(color: AppColors.primary, width: 3),
               ),
               child: ClipOval(
                 child: Stack(
@@ -267,7 +269,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           'https://picsum.photos/seed/default/200/200.jpg',
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
-                        color: const Color(0xFFFF6B6B),
+                        color: AppColors.primary,
                         child: const Icon(
                           Icons.person,
                           color: Colors.white,
@@ -305,7 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 4),
           Text(
             userData?['email'] ?? 'No email',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -350,8 +352,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _menuItem(
             icon: Icons.payment,
             title: 'Payment Methods',
-            subtitle: 'Manage payment options',
-            onTap: _showComingSoon,
+            subtitle: 'Manage your payment options',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      const PaymentMethodsScreen(showBackButton: true),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 10),
           _menuItem(
@@ -407,13 +417,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           height: 40,
           decoration: BoxDecoration(
             color: isDestructive
-                ? Colors.red.withValues(alpha: 0.1)
-                : const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+                ? AppColors.error.withValues(alpha: 0.1)
+                : AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
-            color: isDestructive ? Colors.red : const Color(0xFFFF6B6B),
+            color: isDestructive ? AppColors.error : AppColors.primary,
           ),
         ),
         title: Text(
@@ -421,17 +431,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: isDestructive ? Colors.red : const Color(0xFF2D3436),
+            color: isDestructive ? AppColors.error : AppColors.textPrimary,
           ),
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
         trailing: Icon(
           Icons.arrow_forward_ios,
           size: 16,
-          color: Colors.grey[400],
+          color: AppColors.textLight,
         ),
         onTap: onTap,
       ),
@@ -458,7 +468,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: AppColors.textLight,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -498,7 +508,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text(
                 'Cancel',
-                style: TextStyle(color: Color(0xFF636E72), fontSize: 16),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
               ),
             ),
           ],
@@ -518,12 +528,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+          color: AppColors.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 32, color: const Color(0xFFFF6B6B)),
+            Icon(icon, size: 32, color: AppColors.primary),
             const SizedBox(height: 8),
             Text(
               label,
@@ -568,14 +578,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     }
-  }
-
-  void _showComingSoon() {
-    Helpers.showSnackBar(
-      context,
-      'Feature coming soon!',
-      backgroundColor: Color(AppConstants.primaryColorValue),
-    );
   }
 
   void _showLogoutDialog() {

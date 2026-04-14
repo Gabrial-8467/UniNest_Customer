@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
 import 'cart.dart';
 
@@ -59,7 +60,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         final isNew = product['isNew'] == true;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF6F7FB),
+          backgroundColor: AppColors.background,
           appBar: _buildAppBar(context, appState, product),
           body: ListView(
             padding: EdgeInsets.zero,
@@ -109,7 +110,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final isFavorite = product['isFavorite'] == true;
 
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       elevation: 0,
       scrolledUnderElevation: 0,
       title: Text(
@@ -123,7 +124,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       ),
       leading: IconButton(
         onPressed: () => Navigator.pop(context),
-        icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3436)),
+        icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
       ),
       actions: [
         IconButton(
@@ -134,13 +135,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 content: Text(
                   isFavorite ? 'Removed from wishlist' : 'Added to wishlist',
                 ),
-                backgroundColor: const Color(0xFFFF6B6B),
+                backgroundColor: AppColors.primary,
               ),
             );
           },
           icon: Icon(
             isFavorite ? Icons.favorite : Icons.favorite_border,
-            color: isFavorite ? Colors.red : const Color(0xFF2D3436),
+            color: isFavorite ? AppColors.primary : AppColors.textPrimary,
           ),
         ),
         IconButton(
@@ -176,10 +177,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         fit: StackFit.expand,
         children: [
           Image.network(
-            (product['imageUrl'] ?? '').toString(),
+            product['imageUrl'] is Map
+                ? product['imageUrl']['url'] ?? ''
+                : (product['imageUrl'] ?? '').toString(),
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => Container(
-              color: Colors.grey[300],
+              color: AppColors.textLight,
               child: const Icon(
                 Icons.restaurant_menu,
                 size: 72,
@@ -195,7 +198,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 child: Center(
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: const Color(0xFFFF6B6B),
+                    color: AppColors.primary,
                     value: loadingProgress.expectedTotalBytes != null
                         ? loadingProgress.cumulativeBytesLoaded /
                               loadingProgress.expectedTotalBytes!
@@ -251,8 +254,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           : Icons.cancel_outlined,
                       text: isCanteenOpen ? 'Open now' : 'Closed now',
                       iconColor: isCanteenOpen
-                          ? const Color(0xFF2ECC71)
-                          : const Color(0xFFE74C3C),
+                          ? AppColors.success
+                          : AppColors.error,
                     ),
                   ],
                 ),
@@ -267,14 +270,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 if (isNew) ...[
                   _buildTopBadge(
                     text: 'NEW',
-                    backgroundColor: const Color(0xFF2ECC71),
+                    backgroundColor: AppColors.success,
                   ),
                   const SizedBox(width: 8),
                 ],
                 if (discountPercent > 0)
                   _buildTopBadge(
                     text: '-$discountPercent%',
-                    backgroundColor: const Color(0xFFE74C3C),
+                    backgroundColor: AppColors.error,
                   ),
               ],
             ),
@@ -432,7 +435,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -505,7 +508,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFFFF6B6B)),
+          Icon(icon, size: 18, color: AppColors.primary),
           const SizedBox(height: 6),
           Text(
             value,
@@ -557,7 +560,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               color: const Color(0xFFFF6B6B).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.storefront, color: Color(0xFFFF6B6B)),
+            child: const Icon(Icons.storefront, color: AppColors.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -587,15 +590,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: (isCanteenOpen ? Colors.green : Colors.red).withValues(
-                alpha: 0.12,
-              ),
+              color: (isCanteenOpen ? AppColors.success : AppColors.error)
+                  .withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               isCanteenOpen ? 'Open' : 'Closed',
               style: TextStyle(
-                color: isCanteenOpen ? Colors.green : Colors.red,
+                color: isCanteenOpen ? AppColors.success : AppColors.error,
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
               ),
@@ -667,7 +669,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   _showFullDescription ? 'Show less' : 'Read more',
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFFFF6B6B),
+                    color: AppColors.primary,
                   ),
                 ),
               ),
@@ -714,7 +716,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFFFF6B6B)),
+          Icon(icon, size: 14, color: AppColors.primary),
           const SizedBox(width: 6),
           Text(
             label,
@@ -743,9 +745,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: AppColors.textLight),
         borderRadius: BorderRadius.circular(14),
-        color: const Color(0xFFF8F9FA),
+        color: AppColors.background,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -761,7 +763,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             icon: Icon(
               Icons.remove_rounded,
               size: 20,
-              color: quantity > 1 ? const Color(0xFF2D3436) : Colors.grey[400],
+              color: quantity > 1 ? AppColors.textPrimary : AppColors.textLight,
             ),
           ),
           SizedBox(
@@ -836,7 +838,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: const Border(top: BorderSide(color: Color(0xFFECECEC))),
+        border: const Border(top: BorderSide(color: AppColors.background)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
