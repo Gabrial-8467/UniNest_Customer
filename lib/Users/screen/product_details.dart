@@ -740,6 +740,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final textScale = MediaQuery.of(context).textScaler.scale(1);
     final useCompactLayout = screenWidth < 360 || textScale > 1.1;
+    final canOrder = product['availability'] == 'in_stock';
 
     final quantityControl = Container(
       height: 56,
@@ -797,39 +798,52 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final addToCartButton = SizedBox(
       height: 56,
       child: ElevatedButton(
-        onPressed: () {
-          appState.addToCart(product['id'], quantity: quantity);
-          _showAddToCartSnackbar(
-            productName: (product['name'] ?? 'Item').toString(),
-          );
-        },
+        onPressed: canOrder
+            ? () {
+                appState.addToCart(product['id'], quantity: quantity);
+                _showAddToCartSnackbar(
+                  productName: (product['name'] ?? 'Item').toString(),
+                );
+              }
+            : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFF6B6B),
+          backgroundColor: canOrder
+              ? const Color(0xFFFF6B6B)
+              : AppColors.textLight,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
           elevation: 0,
+          disabledBackgroundColor: AppColors.textLight,
         ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Add to Cart',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '\u20B9${totalPrice.toStringAsFixed(2)} total',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+          child: canOrder
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Add to Cart',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '₹${totalPrice.toStringAsFixed(2)} total',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                )
+              : const Text(
+                  'Out of Stock',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );

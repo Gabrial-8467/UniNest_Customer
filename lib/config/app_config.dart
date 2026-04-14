@@ -70,6 +70,11 @@ class AppConfig {
     return dotenv.env['JWT_SECRET'] ?? '';
   }
 
+  // Razorpay Configuration
+  static String get razorpayKey {
+    return dotenv.env['RAZORPAY_KEY'] ?? '';
+  }
+
   // Network timeout settings
   static Duration get connectionTimeout =>
       Duration(seconds: connectionTimeoutSeconds);

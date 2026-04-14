@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
+import '../../config/app_config.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../utils/app_theme.dart';
@@ -38,16 +39,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     },
     {
       'id': 1,
-      'name': 'Card (Online)',
-      'value': 'card',
+      'name': 'Online Payment',
+      'value': 'razorpay',
       'icon': Icons.credit_card,
-      'gateway': 'razorpay',
-    },
-    {
-      'id': 2,
-      'name': 'UPI (Online)',
-      'value': 'upi',
-      'icon': Icons.qr_code_scanner,
       'gateway': 'razorpay',
     },
   ];
@@ -58,7 +52,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _razorpay = Razorpay();
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
   }
 
   @override
@@ -138,6 +131,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _handlePaymentError(PaymentFailureResponse response) {
     debugPrint('❌ Razorpay Payment Error: ${response.message}');
     if (mounted) {
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Payment failed: ${response.message}'),
@@ -145,10 +139,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       );
     }
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    debugPrint('👛 External Wallet: ${response.walletName}');
   }
 
   @override
@@ -613,9 +603,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
           if (razorpayOrderResult['success'] == true) {
             final razorpayData = razorpayOrderResult['data'];
-            final razorpayOrderId = razorpayData['razorpayOrderId'];
-            final amount = razorpayData['amount'];
-            final key = razorpayData['key'];
+            debugPrint('📦 Razorpay API Response: $razorpayData');
+            final paymentData = razorpayData['payment'];
+            final razorpayOrderId = paymentData?['orderId'];
+            final amount = paymentData?['amount'];
+            // Use key from API response or fallback to config
+            final key = paymentData?['key'] ?? AppConfig.razorpayKey;
+
+            // Validate required fields
+            if (key == null || key.toString().isEmpty) {
+              debugPrint(
+                '❌ Razorpay key is missing from API response and config',
+              );
+              if (!mounted) return;
+              Navigator.pop(context);
+              setState(() => isPlacingOrder = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Payment configuration error: Key not found'),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+              return;
+            }
 
             // Open Razorpay checkout
             final options = {
@@ -626,6 +636,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               'order_id': razorpayOrderId,
               'theme': {'color': '#FF6B6B'},
             };
+            debugPrint('🚀 Razorpay Options: $options');
 
             _razorpay.open(options);
             // Don't navigate yet - wait for payment callback

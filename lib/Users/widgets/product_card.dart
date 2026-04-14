@@ -16,6 +16,7 @@ class ProductCard extends StatelessWidget {
   final VoidCallback? onAddToCart;
   final String? discount;
   final bool isNew;
+  final String? availability;
 
   const ProductCard({
     super.key,
@@ -32,7 +33,10 @@ class ProductCard extends StatelessWidget {
     this.onAddToCart,
     this.discount,
     this.isNew = false,
+    this.availability,
   });
+
+  bool get canOrder => availability == 'in_stock';
 
   @override
   Widget build(BuildContext context) {
@@ -389,9 +393,11 @@ class ProductCard extends StatelessWidget {
           child: SizedBox(
             height: 30,
             child: ElevatedButton(
-              onPressed: onAddToCart,
+              onPressed: canOrder ? onAddToCart : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: canOrder
+                    ? AppColors.primary
+                    : AppColors.textLight,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -399,8 +405,19 @@ class ProductCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                disabledBackgroundColor: AppColors.textLight,
               ),
-              child: const Icon(Icons.add_shopping_cart, size: 14),
+              child: canOrder
+                  ? const Icon(Icons.add_shopping_cart, size: 14)
+                  : const FittedBox(
+                      child: Text(
+                        'Out of Stock',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
             ),
           ),
         ),
@@ -456,6 +473,7 @@ class ProductGrid extends StatelessWidget {
           isFavorite: product['isFavorite'] ?? false,
           discount: product['discount'],
           isNew: product['isNew'] ?? false,
+          availability: product['availability']?.toString(),
           onTap: () => onProductTap?.call(product['id']),
           onFavoriteTap: () => onFavoriteToggle?.call(
             product['id'],
@@ -504,6 +522,7 @@ class ProductList extends StatelessWidget {
           isFavorite: product['isFavorite'] ?? false,
           discount: product['discount'],
           isNew: product['isNew'] ?? false,
+          availability: product['availability']?.toString(),
           onTap: () => onProductTap?.call(product['id']),
           onFavoriteTap: () => onFavoriteToggle?.call(
             product['id'],

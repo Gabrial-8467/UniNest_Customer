@@ -630,6 +630,7 @@ class _HomeScreenState extends State<HomeScreen> {
             isFavorite: product['isFavorite'] == true,
             discount: product['discount']?.toString(),
             isNew: product['isNew'] == true,
+            availability: product['availability']?.toString(),
             onTap: () {
               final productId = (product['id'] ?? '').toString();
               Navigator.push(
