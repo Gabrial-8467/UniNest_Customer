@@ -204,6 +204,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 ],
               ),
             ),
+            // Show OTP card when order is out for delivery
+            if (status.toLowerCase() == 'out for delivery' ||
+                status.toLowerCase() == 'out_for_delivery') ...[
+              const SizedBox(height: 12),
+              _buildDeliveryOtpCard(order),
+            ],
           ] else ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -657,6 +663,150 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               );
             },
             child: const Text('Call'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryOtpCard(Map<String, dynamic> order) {
+    // Extract OTP from order data
+    final deliveryOtp = order['deliveryOtp'] as Map<String, dynamic>?;
+    final otpCode =
+        deliveryOtp?['code'] as String?; // Raw OTP code from backend
+    final otpHash = deliveryOtp?['hash'] as String?;
+
+    // Show OTP if available, otherwise show placeholder
+    final otpValue = otpCode ?? (otpHash != null ? '****' : null);
+
+    if (otpValue == null && otpHash == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.lock_outline, color: AppColors.primary, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Delivery Verification Code',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Share this OTP with the delivery partner',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (otpValue != null && otpValue != '****') ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  otpValue,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                    letterSpacing: 8,
+                  ),
+                ),
+              ),
+            ),
+          ] else ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    color: AppColors.textSecondary,
+                    size: 24,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'OTP will be shared by delivery partner',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.amber.shade700,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Do not share this code until you receive your order',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.amber.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
