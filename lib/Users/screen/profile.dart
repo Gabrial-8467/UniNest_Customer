@@ -7,7 +7,6 @@ import '../../../utils/utils.dart';
 
 import 'help_support.dart';
 import 'order_history.dart';
-import 'payment_methods_screen.dart';
 import 'wishlist.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -344,21 +343,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 MaterialPageRoute(
                   builder: (context) =>
                       const WishlistScreen(showBackButton: true),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          _menuItem(
-            icon: Icons.payment,
-            title: 'Payment Methods',
-            subtitle: 'Manage your payment options',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      const PaymentMethodsScreen(showBackButton: true),
                 ),
               );
             },

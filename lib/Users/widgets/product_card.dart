@@ -17,6 +17,7 @@ class ProductCard extends StatelessWidget {
   final String? discount;
   final bool isNew;
   final String? availability;
+  final bool? madeToOrder;
 
   const ProductCard({
     super.key,
@@ -34,9 +35,15 @@ class ProductCard extends StatelessWidget {
     this.discount,
     this.isNew = false,
     this.availability,
+    this.madeToOrder,
   });
 
-  bool get canOrder => availability == 'in_stock';
+  bool get canOrder {
+    // Made-to-order items are always available
+    if (madeToOrder == true) return true;
+    // Pre-packaged items need to be in stock
+    return availability == 'in_stock';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -474,6 +481,7 @@ class ProductGrid extends StatelessWidget {
           discount: product['discount'],
           isNew: product['isNew'] ?? false,
           availability: product['availability']?.toString(),
+          madeToOrder: product['madeToOrder'] ?? false,
           onTap: () => onProductTap?.call(product['id']),
           onFavoriteTap: () => onFavoriteToggle?.call(
             product['id'],
@@ -523,6 +531,7 @@ class ProductList extends StatelessWidget {
           discount: product['discount'],
           isNew: product['isNew'] ?? false,
           availability: product['availability']?.toString(),
+          madeToOrder: product['madeToOrder'] ?? false,
           onTap: () => onProductTap?.call(product['id']),
           onFavoriteTap: () => onFavoriteToggle?.call(
             product['id'],

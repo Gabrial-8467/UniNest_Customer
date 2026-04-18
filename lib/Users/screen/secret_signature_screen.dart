@@ -35,32 +35,28 @@ class SecretSignatureScreen extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: isSmallScreen ? 100 : 120,
-                        height: isSmallScreen ? 100 : 120,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF6B6B), Color(0xFF4ECDC4)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(
-                            isSmallScreen ? 50 : 60,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFFFF6B6B,
-                              ).withValues(alpha: 0.3),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            ),
-                          ],
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(
+                          isSmallScreen ? 50 : 60,
                         ),
-                        child: Icon(
-                          Icons.restaurant_menu,
-                          size: isSmallScreen ? 50 : 60,
-                          color: Colors.white,
+                        child: Container(
+                          width: isSmallScreen ? 100 : 120,
+                          height: isSmallScreen ? 100 : 120,
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFFFF6B6B,
+                                ).withValues(alpha: 0.3),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              ),
+                            ],
+                          ),
+                          child: Image.asset(
+                            'assets/uninest.jpeg',
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                       SizedBox(height: isSmallScreen ? 30 : 40),

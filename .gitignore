@@ -54,6 +54,8 @@ migrate_working_dir/
 *.credentials
 .env.*
 
+.claude
+
 # Lib directory specific sensitive files
 lib/**/*.env
 lib/**/*.key

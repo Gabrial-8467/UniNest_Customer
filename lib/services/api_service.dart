@@ -42,7 +42,10 @@ class ApiService {
 
       debugPrint('🔍 API Request: $method $uri');
       if (body != null) {
-        debugPrint('📤 Request Body: ${_sanitizeLogData(body)}');
+        debugPrint('📤 Request Body (Map): ${_sanitizeLogData(body)}');
+        debugPrint(
+          '📤 Request Body (JSON): ${jsonEncode(_sanitizeLogData(body))}',
+        );
       }
 
       http.Response response;
@@ -311,6 +314,16 @@ class ApiService {
     );
   }
 
+  // ==================== HEALTH CHECK ENDPOINT ====================
+
+  static Future<Map<String, dynamic>> getCustomerHealth() async {
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: ApiEndpoints.health,
+      usePublicBaseUrl: true,
+    );
+  }
+
   // ==================== CUSTOMER ENDPOINTS ====================
 
   static Future<Map<String, dynamic>> getVendors({
@@ -492,19 +505,81 @@ class ApiService {
     required String paymentMethod,
     String? fulfillmentType,
     String? couponCode,
+    String? vendorId,
   }) async {
-    final body = <String, dynamic>{
-      'items': items,
-      'paymentMethod': paymentMethod,
-      'deliveryAddress': deliveryAddress,
+    // Build items with 'productId' field and string quantity
+    final List<Map<String, dynamic>> orderItems = [];
+    for (final item in items) {
+      final qty = item['quantity'];
+      orderItems.add({
+        'productId': (item['productId'] ?? item['product'] ?? item['id'] ?? '')
+            .toString(),
+        'quantity': (qty?.toString() ?? '1'),
+      });
+    }
+
+    final methodValue = paymentMethod.toLowerCase() == 'cod'
+        ? 'cod'
+        : 'razorpay';
+
+    // Build deliveryAddress with optional location object
+    final deliveryBody = <String, dynamic>{
+      'address': (deliveryAddress['address'] ?? '').toString(),
+      'addressType':
+          (deliveryAddress['type'] ??
+                  deliveryAddress['addressType'] ??
+                  'campus')
+              .toString(),
     };
 
-    if (fulfillmentType != null) body['fulfillmentType'] = fulfillmentType;
-    if (couponCode != null) body['couponCode'] = couponCode;
+    // Location object removed for debugging - backend validation issue
+
+    final body = <String, dynamic>{
+      'items': orderItems,
+      'paymentMethod': methodValue,
+      'deliveryAddress': deliveryBody,
+      if (fulfillmentType != null && fulfillmentType.isNotEmpty)
+        'fulfillmentType': fulfillmentType,
+    };
+
+    final result = await _makeRequest(
+      method: 'POST',
+      endpoint: ApiEndpoints.orders,
+      token: token,
+      body: body,
+    );
+
+    return result;
+  }
+
+  static Future<Map<String, dynamic>> calculatePricingPreview({
+    required String token,
+    required List<Map<String, dynamic>> items,
+    required String vendorId,
+    String? offerCode,
+    String? fulfillmentType,
+  }) async {
+    final List<Map<String, dynamic>> orderItems = [];
+    for (final item in items) {
+      final qty = item['quantity'];
+      orderItems.add({
+        'productId': (item['productId'] ?? item['product'] ?? item['id'] ?? '')
+            .toString(),
+        'quantity': (qty?.toString() ?? '1'),
+      });
+    }
+
+    final body = <String, dynamic>{
+      'items': orderItems,
+      'vendorId': vendorId,
+      if (offerCode != null && offerCode.isNotEmpty) 'offerCode': offerCode,
+      if (fulfillmentType != null && fulfillmentType.isNotEmpty)
+        'fulfillmentType': fulfillmentType,
+    };
 
     return await _makeRequest(
       method: 'POST',
-      endpoint: ApiEndpoints.orders,
+      endpoint: ApiEndpoints.calculatePricing,
       token: token,
       body: body,
     );
@@ -625,12 +700,56 @@ class ApiService {
     if (isRead != null) queryParams['isRead'] = isRead.toString();
     if (type != null) queryParams['type'] = type;
 
-    return await _makeRequest(
+    final result = await _makeRequest(
       method: 'GET',
       endpoint: ApiEndpoints.notifications,
       token: token,
       queryParams: queryParams,
     );
+
+    if (result['success'] != true) {
+      return result;
+    }
+
+    final rawData = result['data'];
+    final normalizedData = <String, dynamic>{};
+
+    if (rawData is Map<String, dynamic>) {
+      normalizedData.addAll(rawData);
+    } else if (rawData is List) {
+      normalizedData['notifications'] = rawData;
+    } else {
+      normalizedData['notifications'] = <dynamic>[];
+    }
+
+    final rawNotifications = normalizedData['notifications'];
+    if (rawNotifications is List) {
+      normalizedData['notifications'] = rawNotifications;
+    } else if (rawNotifications is Map<String, dynamic>) {
+      final nestedNotifications = rawNotifications['notifications'];
+      if (nestedNotifications is List) {
+        normalizedData['notifications'] = nestedNotifications;
+      } else {
+        normalizedData['notifications'] = rawNotifications.values
+            .whereType<Map<String, dynamic>>()
+            .toList();
+      }
+    } else {
+      normalizedData['notifications'] = <dynamic>[];
+    }
+
+    normalizedData['pagination'] =
+        normalizedData['pagination'] is Map<String, dynamic>
+        ? normalizedData['pagination']
+        : <String, dynamic>{};
+    normalizedData['unreadCount'] =
+        (normalizedData['unreadCount'] as num?)?.toInt() ??
+        ((normalizedData['pagination'] as Map<String, dynamic>)['total']
+                as num?)
+            ?.toInt() ??
+        0;
+
+    return {...result, 'data': normalizedData};
   }
 
   static Future<Map<String, dynamic>> markAllNotificationsRead(

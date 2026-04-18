@@ -492,6 +492,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           _buildPriceRow('Delivery Fee', order['deliveryFee']),
           _buildPriceRow('Platform Fee', order['platformFee']),
           _buildPriceRow('Tax', order['tax']),
+          if (((order['lateNightFee'] as num?)?.toDouble() ?? 0.0) > 0.0)
+            _buildPriceRow(
+              'Late Night Fee (11PM-5AM)',
+              order['lateNightFee'],
+              isLateNight: true,
+            ),
+          if (((order['discount'] as num?)?.toDouble() ?? 0.0) > 0.0)
+            _buildPriceRow('Discount', -order['discount'], isDiscount: true),
           const Divider(height: 24),
           _buildPriceRow('Total', order['total'], isTotal: true),
         ],
@@ -499,7 +507,13 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     );
   }
 
-  Widget _buildPriceRow(String label, dynamic amount, {bool isTotal = false}) {
+  Widget _buildPriceRow(
+    String label,
+    dynamic amount, {
+    bool isTotal = false,
+    bool isDiscount = false,
+    bool isLateNight = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -518,7 +532,13 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             style: TextStyle(
               fontSize: isTotal ? 16 : 14,
               fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              color: isTotal ? AppColors.primary : AppColors.textPrimary,
+              color: isDiscount
+                  ? Colors.green
+                  : (isLateNight
+                        ? Colors.orange
+                        : (isTotal
+                              ? AppColors.primary
+                              : AppColors.textPrimary)),
             ),
           ),
         ],
@@ -707,19 +727,31 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   String _formatDeliveryAddress(dynamic delivery) {
     if (delivery is! Map<String, dynamic>) return '';
     final parts = <String>[];
-    if (delivery['block']?.toString().isNotEmpty == true) {
-      parts.add(delivery['block'].toString());
+
+    // Use address if available (from API/backend)
+    if (delivery['address']?.toString().isNotEmpty == true) {
+      parts.add(delivery['address'].toString());
     }
+
+    // Check for building/block
+    final building = delivery['building'] ?? delivery['block'];
+    if (building?.toString().isNotEmpty == true) {
+      parts.add(building.toString());
+    }
+
     if (delivery['room']?.toString().isNotEmpty == true) {
       parts.add('Room ${delivery['room']}');
     }
+
     if (delivery['floor']?.toString().isNotEmpty == true) {
       parts.add('${delivery['floor']} Floor');
     }
+
     if (delivery['landmark']?.toString().isNotEmpty == true) {
       parts.add('Near ${delivery['landmark']}');
     }
-    return parts.join(', ');
+
+    return parts.isEmpty ? 'Campus Address' : parts.join(', ');
   }
 
   void _showOrderHelp() {

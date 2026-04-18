@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
 import '../widgets/canteen_card.dart';
@@ -23,6 +27,68 @@ class _HomeScreenState extends State<HomeScreen> {
   String selectedCategory = 'All';
   String selectedCanteenId = 'All';
   String searchQuery = '';
+
+  // Active order toast variables
+  bool _showOrderToast = false;
+  String? _activeOrderId;
+  String _orderStatus = 'preparing';
+  String? _orderVendorName;
+  Timer? _toastTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check for active orders when home screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForActiveOrders();
+    });
+  }
+
+  @override
+  void dispose() {
+    _toastTimer?.cancel();
+    super.dispose();
+  }
+
+  // Check for active orders and show toast if found
+  Future<void> _checkForActiveOrders() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) return;
+
+      final result = await ApiService.getUserOrders(
+        token: token,
+        page: 1,
+        limit: 1,
+      );
+
+      if (result['success'] == true) {
+        final orders = result['data']['orders'] as List<dynamic>?;
+        if (orders != null && orders.isNotEmpty) {
+          final latestOrder = orders.first;
+          final status = latestOrder['status']?.toString() ?? 'preparing';
+
+          // Only show toast for active orders (not delivered/cancelled)
+          if (!['delivered', 'cancelled', 'rejected'].contains(status)) {
+            final orderId =
+                latestOrder['_id']?.toString() ??
+                latestOrder['id']?.toString() ??
+                '';
+            final vendorName =
+                latestOrder['vendorName']?.toString() ??
+                latestOrder['canteenName']?.toString() ??
+                'Campus Eats';
+
+            if (orderId.isNotEmpty) {
+              _showOrderStatusToast(orderId, vendorName, status);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking for active orders: $e');
+    }
+  }
 
   // Secret signature screen variables
   int _tapCount = 0;
@@ -68,6 +134,207 @@ class _HomeScreenState extends State<HomeScreen> {
       _lastTapTime = null;
       _showSecretSignatureScreen();
     }
+  }
+
+  Widget _buildOrderToast() {
+    final statusColors = {
+      'preparing': Colors.orange,
+      'ready': Colors.green,
+      'out_for_delivery': Colors.blue,
+      'delivered': Colors.grey,
+    };
+
+    final statusIcons = {
+      'preparing': Icons.restaurant,
+      'ready': Icons.check_circle,
+      'out_for_delivery': Icons.delivery_dining,
+      'delivered': Icons.done_all,
+    };
+
+    final statusText = {
+      'preparing': 'Preparing your order',
+      'ready': 'Ready for pickup',
+      'out_for_delivery': 'Out for delivery',
+      'delivered': 'Delivered',
+    };
+
+    return GestureDetector(
+      onTap: () {
+        if (_activeOrderId != null) {
+          Navigator.pushNamed(
+            context,
+            '/order-tracking',
+            arguments: _activeOrderId,
+          );
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(
+            color: statusColors[_orderStatus] ?? AppColors.primary,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: (statusColors[_orderStatus] ?? AppColors.primary)
+                    .withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                statusIcons[_orderStatus] ?? Icons.restaurant,
+                color: statusColors[_orderStatus] ?? AppColors.primary,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    statusText[_orderStatus] ?? 'Order in progress',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _orderVendorName ?? 'Campus Eats',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _showOrderToast = false;
+                  _toastTimer?.cancel();
+                });
+              },
+              icon: const Icon(Icons.close, size: 18),
+              color: AppColors.textSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showOrderStatusToast(String orderId, String vendorName, String status) {
+    _toastTimer?.cancel();
+    setState(() {
+      _showOrderToast = true;
+      _activeOrderId = orderId;
+      _orderVendorName = vendorName;
+      _orderStatus = status;
+    });
+
+    // Start real-time polling for order status updates
+    _startOrderStatusPolling(orderId);
+  }
+
+  void _startOrderStatusPolling(String orderId) {
+    _toastTimer?.cancel();
+    _toastTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      try {
+        final token = await AuthService.getToken();
+        if (token == null || token.isEmpty) return;
+
+        final result = await ApiService.getUserOrders(
+          token: token,
+          page: 1,
+          limit: 1,
+        );
+        if (result['success'] == true) {
+          final orders = result['data']['orders'] as List<dynamic>?;
+          if (orders != null && orders.isNotEmpty) {
+            final latestOrder = orders.firstWhere(
+              (o) => o['_id'] == orderId || o['id'] == orderId,
+              orElse: () => null,
+            );
+
+            if (latestOrder != null) {
+              final newStatus =
+                  latestOrder['status']?.toString() ?? _orderStatus;
+              if (newStatus != _orderStatus) {
+                setState(() => _orderStatus = newStatus);
+              }
+
+              // Stop polling if order is delivered or cancelled
+              if (['delivered', 'cancelled', 'rejected'].contains(newStatus)) {
+                timer.cancel();
+                // Auto-hide after 5 seconds for final states
+                Timer(const Duration(seconds: 5), () {
+                  if (mounted) {
+                    setState(() => _showOrderToast = false);
+                  }
+                });
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error polling order status: $e');
+      }
+    });
+
+    // Initial delay before first poll
+    Timer(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+      try {
+        final token = await AuthService.getToken();
+        if (token == null || token.isEmpty) return;
+
+        final result = await ApiService.getUserOrders(
+          token: token,
+          page: 1,
+          limit: 1,
+        );
+        if (result['success'] == true) {
+          final orders = result['data']['orders'] as List<dynamic>?;
+          if (orders != null && orders.isNotEmpty) {
+            final latestOrder = orders.firstWhere(
+              (o) => o['_id'] == orderId || o['id'] == orderId,
+              orElse: () => null,
+            );
+            if (latestOrder != null && mounted) {
+              setState(
+                () => _orderStatus =
+                    latestOrder['status']?.toString() ?? _orderStatus,
+              );
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error in initial order status fetch: $e');
+      }
+    });
   }
 
   void _showSecretSignatureScreen() {
@@ -188,6 +455,8 @@ class _HomeScreenState extends State<HomeScreen> {
             child: CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(child: _buildSearchBar()),
+                if (_showOrderToast)
+                  SliverToBoxAdapter(child: _buildOrderToast()),
                 SliverToBoxAdapter(child: _buildCategories()),
                 if (appState.hasConnectionError)
                   SliverToBoxAdapter(
@@ -228,16 +497,13 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: _onLogoTap,
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.restaurant_menu,
-                color: Colors.white,
-                size: 24,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/uninest.jpeg',
+                height: 40,
+                width: 40,
+                fit: BoxFit.cover,
               ),
             ),
             const SizedBox(width: 12),

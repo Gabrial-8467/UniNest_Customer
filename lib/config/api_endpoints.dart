@@ -32,6 +32,7 @@ class ApiEndpoints {
 
   // Orders
   static const String orders = '$apiPrefix/orders';
+  static const String calculatePricing = '$apiPrefix/orders/calculate-pricing';
 
   static String vendorById(String vendorId) => '$vendors/$vendorId';
   static String productById(String productId) => '$products/$productId';
@@ -46,4 +47,5 @@ class ApiEndpoints {
 
   // Utility
   static const String health = '/health';
+  static const String customerHealth = '$apiPrefix/health';
 }

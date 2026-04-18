@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../utils/app_theme.dart';
@@ -22,6 +24,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int currentPage = 1;
   int totalPages = 1;
   bool hasMoreData = false;
+
+  static const String _menuMarkAllRead = 'mark_all_read';
+  static const String _menuClearAll = 'clear_all';
+  static const String _clearedNotificationsKey = 'cleared_notification_ids';
 
   @override
   void initState() {
@@ -65,6 +71,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       if (result['success'] == true) {
         final data = result['data'] ?? {};
+        final clearedNotificationIds = await _getClearedNotificationIds();
         // Handle different API response structures
         final notificationsData = data['notifications'];
         final List<dynamic> newNotifications;
@@ -81,6 +88,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         setState(() {
           final castNotifications = newNotifications
               .whereType<Map<String, dynamic>>()
+              .where((notification) {
+                final notificationId = (notification['_id'] ?? '').toString();
+                return notificationId.isEmpty ||
+                    !clearedNotificationIds.contains(notificationId);
+              })
               .toList();
           if (refresh || currentPage == 1) {
             notifications = castNotifications;
@@ -92,6 +104,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           isLoading = false;
           isLoadingMore = false;
         });
+        if (mounted) {
+          AppStateScope.of(context).updateNotificationCount(
+            notifications.where((n) => !(n['isRead'] ?? false)).length,
+          );
+        }
       } else {
         setState(() {
           errorMessage = result['error'] ?? 'Failed to load notifications';
@@ -125,6 +142,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (result['success'] == true) {
         await _loadNotifications(refresh: true);
         if (mounted) {
+          AppStateScope.of(context).updateNotificationCount(0);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('All notifications marked as read'),
@@ -135,6 +153,84 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (e) {
       debugPrint('Error marking notifications as read: $e');
+    }
+  }
+
+  Future<void> _clearAllNotifications() async {
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Clear all notifications'),
+        content: const Text(
+          'This will remove all notifications from this screen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Clear all'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldClear != true || !mounted) {
+      return;
+    }
+
+    final notificationIds = notifications
+        .map((notification) => (notification['_id'] ?? '').toString())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    await _saveClearedNotificationIds(notificationIds);
+
+    if (!mounted) return;
+
+    setState(() {
+      notifications = [];
+      currentPage = 1;
+      totalPages = 1;
+      hasMoreData = false;
+    });
+    AppStateScope.of(context).updateNotificationCount(0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('All notifications cleared'),
+        backgroundColor: AppColors.success,
+      ),
+    );
+  }
+
+  Future<Set<String>> _getClearedNotificationIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_clearedNotificationsKey) ?? const <String>[])
+        .toSet();
+  }
+
+  Future<void> _saveClearedNotificationIds(List<String> notificationIds) async {
+    if (notificationIds.isEmpty) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final existingIds =
+        prefs.getStringList(_clearedNotificationsKey) ?? const <String>[];
+    final mergedIds = {...existingIds, ...notificationIds}.toList();
+    await prefs.setStringList(_clearedNotificationsKey, mergedIds);
+  }
+
+  Future<void> _handleHeaderMenuAction(String action) async {
+    switch (action) {
+      case _menuMarkAllRead:
+        await _markAllAsRead();
+        break;
+      case _menuClearAll:
+        await _clearAllNotifications();
+        break;
     }
   }
 
@@ -275,11 +371,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         automaticallyImplyLeading: widget.showBackButton,
         actions: [
           if (notifications.isNotEmpty)
-            TextButton.icon(
-              onPressed: _markAllAsRead,
-              icon: const Icon(Icons.done_all, size: 18),
-              label: const Text('Mark all read'),
-              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            PopupMenuButton<String>(
+              onSelected: _handleHeaderMenuAction,
+              icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
+              itemBuilder: (context) => const [
+                PopupMenuItem<String>(
+                  value: _menuMarkAllRead,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.done_all),
+                    title: Text('Mark all as read'),
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: _menuClearAll,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.clear_all),
+                    title: Text('Clear all notifications'),
+                  ),
+                ),
+              ],
             ),
         ],
       ),

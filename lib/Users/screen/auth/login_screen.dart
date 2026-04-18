@@ -202,6 +202,7 @@ class _LoginScreenState extends State<LoginScreen>
             tag: 'logo',
             child: Container(
               decoration: BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(

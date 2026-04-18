@@ -18,32 +18,45 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   int selectedPaymentMethod = 0;
   bool isPlacingOrder = false;
+  String fulfillmentType = 'delivery'; // 'delivery' or 'takeaway'
+  String? _couponCode;
+  bool _isLoadingPricing = false;
+  String? _vendorId;
 
   // Razorpay instance
   late Razorpay _razorpay;
   String? _currentOrderId;
+  List<Map<String, dynamic>> _pendingCartSnapshot = const [];
+  Map<String, dynamic>? _pendingDeliveryAddress;
+  Map<String, dynamic>? _pendingOrderData;
 
   // Delivery location controllers
   final _blockController = TextEditingController();
   final _roomController = TextEditingController();
   final _floorController = TextEditingController();
   final _landmarkController = TextEditingController();
+  final _couponController = TextEditingController();
 
   final List<Map<String, dynamic>> paymentMethods = const [
     {
       'id': 0,
       'name': 'Cash on Delivery',
-      'value': 'cod',
+      'value': 'COD',
       'icon': Icons.money,
       'gateway': null,
     },
     {
       'id': 1,
-      'name': 'Online Payment',
+      'name': 'Pay via Razorpay',
       'value': 'razorpay',
       'icon': Icons.credit_card,
       'gateway': 'razorpay',
     },
+  ];
+
+  final List<Map<String, dynamic>> fulfillmentOptions = const [
+    {'id': 'delivery', 'name': 'Delivery', 'icon': Icons.delivery_dining},
+    {'id': 'takeaway', 'name': 'Self Pickup', 'icon': Icons.store},
   ];
 
   @override
@@ -52,6 +65,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _razorpay = Razorpay();
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+
+    // Fetch pricing from backend after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchBackendPricing();
+    });
+  }
+
+  Future<void> _fetchBackendPricing() async {
+    final appState = AppStateScope.of(context);
+    if (appState.cartItems.isEmpty) return;
+
+    // Get vendor ID from first cart item
+    final firstItem = appState.cartItems.first;
+    final product = appState.getProductById(firstItem['id'] as String);
+    if (product == null) return;
+
+    final canteen = appState.getCanteenById(product['canteenId'] as String);
+    if (canteen == null) return;
+
+    _vendorId = canteen['id'] as String? ?? canteen['_id'] as String?;
+    if (_vendorId == null) return;
+
+    setState(() => _isLoadingPricing = true);
+
+    await appState.fetchPricingFromBackend(
+      vendorId: _vendorId!,
+      offerCode: _couponCode,
+      fulfillmentType: fulfillmentType,
+    );
+
+    if (mounted) {
+      setState(() => _isLoadingPricing = false);
+    }
   }
 
   @override
@@ -61,7 +107,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _roomController.dispose();
     _floorController.dispose();
     _landmarkController.dispose();
+    _couponController.dispose();
     super.dispose();
+  }
+
+  int _resolveRazorpayAmount({
+    required dynamic rawAmount,
+    required double fallbackTotalInRupees,
+  }) {
+    final fallbackInPaise = (fallbackTotalInRupees * 100).round();
+
+    if (rawAmount == null) {
+      return fallbackInPaise;
+    }
+
+    if (rawAmount is num) {
+      final normalizedAmount = rawAmount.toDouble();
+
+      // Razorpay expects the amount in the smallest currency unit (paise).
+      // Some backends return rupees, others already return paise.
+      if (normalizedAmount <= fallbackTotalInRupees + 1) {
+        return (normalizedAmount * 100).round();
+      }
+
+      return normalizedAmount.round();
+    }
+
+    final parsedAmount = double.tryParse(rawAmount.toString());
+    if (parsedAmount == null) {
+      return fallbackInPaise;
+    }
+
+    if (parsedAmount <= fallbackTotalInRupees + 1) {
+      return (parsedAmount * 100).round();
+    }
+
+    return parsedAmount.round();
   }
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
@@ -91,18 +172,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
 
       if (verifyResult['success'] == true) {
-        if (mounted) {
-          Navigator.pop(context);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OrderTrackingScreen(
-                orderId: _currentOrderId!,
-                showBackButton: true,
-              ),
+        if (!mounted) return;
+        final appState = AppStateScope.of(context);
+        final verifiedOrderData = verifyResult['data'] is Map<String, dynamic>
+            ? Map<String, dynamic>.from(
+                verifyResult['data'] as Map<String, dynamic>,
+              )
+            : (_pendingOrderData ?? <String, dynamic>{});
+        appState.registerBackendOrder(
+          orderData: verifiedOrderData,
+          cartSnapshot: _pendingCartSnapshot,
+          deliveryAddress: _pendingDeliveryAddress,
+        );
+
+        Navigator.pop(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OrderTrackingScreen(
+              orderId: _currentOrderId!,
+              showBackButton: true,
             ),
-          );
-        }
+          ),
+        );
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -170,6 +262,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
               _buildOrderSummary(appState),
+              const SizedBox(height: 16),
+              _buildCouponField(appState),
+              const SizedBox(height: 16),
+              _buildFulfillmentType(),
               const SizedBox(height: 16),
               _buildDeliveryAddress(appState),
               const SizedBox(height: 16),
@@ -248,6 +344,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildOrderSummary(CampusAppState appState) {
+    // Use backend pricing if available, otherwise fallback to local calculation
+    final subtotal = appState.backendSubtotal;
+    final deliveryFee = appState.backendDeliveryFee;
+    final platformFee = appState.backendPlatformFee;
+    final tax = appState.backendTax;
+    final discount = appState.backendDiscount;
+    final lateNightFee = appState.backendLateNightFee;
+    final total = appState.backendTotal;
+    final hasDiscount = discount > 0;
+    final hasLateNightFee = lateNightFee > 0;
+    debugPrint(
+      '🌙 Checkout - Late Night Fee: $lateNightFee, Has Late Night: $hasLateNightFee',
+    );
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
@@ -265,23 +375,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Order Summary',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Order Summary',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              if (_isLoadingPricing)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 14),
           ...appState.cartItems.map(_buildOrderItem),
           const Divider(height: 22),
-          _summaryRow('Subtotal', appState.subtotal),
-          _summaryRow('Delivery Fee', appState.deliveryFee),
-          _summaryRow('Platform Fee', appState.platformFee),
-          _summaryRow('Tax', appState.tax),
+          _summaryRow('Subtotal', subtotal),
+          _summaryRow('Delivery Fee', deliveryFee),
+          _summaryRow('Platform Fee', platformFee),
+          _summaryRow('Tax (5%)', tax),
+          if (hasLateNightFee) ...[
+            _summaryRow(
+              'Late Night Fee (11PM-5AM)',
+              lateNightFee,
+              isLateNight: true,
+            ),
+          ],
+          if (hasDiscount) ...[
+            _summaryRow(
+              'Discount ${appState.appliedCoupon?['code'] ?? ''}',
+              -discount,
+              isDiscount: true,
+            ),
+          ],
           const Divider(height: 18),
-          _summaryRow('Total', appState.total, isTotal: true),
+          _summaryRow('Total', total, isTotal: true),
         ],
       ),
     );
@@ -339,7 +477,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _summaryRow(String label, double amount, {bool isTotal = false}) {
+  Widget _summaryRow(
+    String label,
+    double amount, {
+    bool isTotal = false,
+    bool isDiscount = false,
+    bool isLateNight = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -354,14 +498,200 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
           Text(
-            '\u20B9${amount.toStringAsFixed(2)}',
+            '${amount < 0 ? '-' : ''}\u20B9${amount.abs().toStringAsFixed(2)}',
             style: TextStyle(
               fontSize: isTotal ? 18 : 14,
               fontWeight: FontWeight.bold,
-              color: isTotal ? AppColors.primary : AppColors.textPrimary,
+              color: isDiscount
+                  ? Colors.green
+                  : (isLateNight
+                        ? Colors.orange
+                        : (isTotal
+                              ? AppColors.primary
+                              : AppColors.textPrimary)),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCouponField(CampusAppState appState) {
+    final hasAppliedCoupon = appState.hasActiveCoupon;
+
+    return _sectionCard(
+      title: 'Coupon Code',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _couponController,
+                  enabled: !hasAppliedCoupon,
+                  decoration: InputDecoration(
+                    hintText: hasAppliedCoupon
+                        ? 'Coupon applied'
+                        : 'Enter coupon code (e.g., SAVE10)',
+                    prefixIcon: const Icon(
+                      Icons.local_offer,
+                      color: AppColors.textSecondary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.textLight),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.textLight),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primary),
+                    ),
+                    filled: true,
+                    fillColor: AppColors.background,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (hasAppliedCoupon)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _couponCode = null;
+                      _couponController.clear();
+                    });
+                    _fetchBackendPricing();
+                  },
+                  icon: const Icon(Icons.close, size: 18),
+                  label: const Text('Remove'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                )
+              else
+                ElevatedButton(
+                  onPressed: _isLoadingPricing
+                      ? null
+                      : () async {
+                          final code = _couponController.text.trim();
+                          if (code.isEmpty) return;
+                          setState(() => _couponCode = code);
+                          await _fetchBackendPricing();
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoadingPricing
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Apply'),
+                ),
+            ],
+          ),
+          if (hasAppliedCoupon) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Coupon ${appState.appliedCoupon?['code'] ?? ''} applied!',
+                    style: const TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFulfillmentType() {
+    return _sectionCard(
+      title: 'Order Type',
+      child: Column(
+        children: fulfillmentOptions.map((option) {
+          final selected = fulfillmentType == option['id'];
+          return GestureDetector(
+            onTap: () async {
+              setState(() {
+                fulfillmentType = option['id'] as String;
+              });
+              // Refresh pricing when fulfillment type changes
+              await _fetchBackendPricing();
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: selected ? AppColors.primary : AppColors.textLight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                color: selected
+                    ? AppColors.primary.withValues(alpha: 0.06)
+                    : Colors.transparent,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                    color: selected
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    option['icon'] as IconData,
+                    color: AppColors.textPrimary,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    option['name'] as String,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: selected
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -468,10 +798,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          child: Text(
-            'Place Order - \u20B9${appState.total.toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
+          child: _isLoadingPricing
+              ? const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'Calculating...',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                )
+              : Text(
+                  'Place Order - \u20B9${appState.backendTotal.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
         ),
       ),
     );
@@ -543,13 +898,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         (item) => item['id'] == selectedPaymentMethod,
         orElse: () => paymentMethods.first,
       );
+      final paymentMethodValue = (method['value'] ?? '').toString().trim();
+      final cartSnapshot = appState.cartItems
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
 
       // Prepare order items
       final items = appState.cartItems.map((item) {
         return {
-          'productId': item['id'],
-          'quantity': item['quantity'],
-          'customizations': [],
+          'productId': (item['id'] ?? '').toString(),
+          'quantity': (item['quantity'] as num?)?.toInt() ?? 1,
         };
       }).toList();
 
@@ -566,32 +924,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       final addressString = addressParts.join(', ');
 
-      final deliveryAddress = {
-        'address': addressString,
+      final deliveryAddress = <String, dynamic>{
+        'address': addressString.toString(),
         'type': 'campus',
-        'landmark': _landmarkController.text.trim(),
-        'location': {
-          'building': _blockController.text.trim(),
-          'room': _roomController.text.trim(),
-          'floor': _floorController.text.trim(),
-        },
+        'building': _blockController.text.trim(),
+        'room': _roomController.text.trim(),
+        'floor': _floorController.text.trim(),
       };
+      if (_landmarkController.text.trim().isNotEmpty) {
+        deliveryAddress['landmark'] = _landmarkController.text.trim();
+      }
 
       // Create order via API
+      debugPrint(
+        '🧾 Create order payload: paymentMethod=$paymentMethodValue, '
+        'deliveryAddressType=${deliveryAddress['type']}, items=${items.length}',
+      );
       final result = await ApiService.createOrder(
         token: token,
         items: items,
-        paymentMethod: method['value'] as String,
+        paymentMethod: paymentMethodValue,
         deliveryAddress: deliveryAddress,
-        fulfillmentType: 'delivery',
+        fulfillmentType: fulfillmentType,
       );
 
       if (!mounted) return;
 
       if (result['success'] == true) {
-        final orderData = result['data'];
-        final orderId = orderData['_id'] ?? orderData['orderNumber'] ?? '';
+        final orderData = Map<String, dynamic>.from(
+          (result['data'] as Map?) ?? const <String, dynamic>{},
+        );
+        final orderId = (orderData['orderNumber'] ?? orderData['_id'] ?? '')
+            .toString();
         _currentOrderId = orderId;
+        _pendingCartSnapshot = cartSnapshot;
+        _pendingDeliveryAddress = Map<String, dynamic>.from(deliveryAddress);
+        _pendingOrderData = orderData;
 
         // Handle Razorpay payment for online methods
         if (method['gateway'] == 'razorpay') {
@@ -606,7 +974,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             debugPrint('📦 Razorpay API Response: $razorpayData');
             final paymentData = razorpayData['payment'];
             final razorpayOrderId = paymentData?['orderId'];
-            final amount = paymentData?['amount'];
+            final razorpayAmount = _resolveRazorpayAmount(
+              rawAmount: paymentData?['amount'],
+              fallbackTotalInRupees: appState.total,
+            );
             // Use key from API response or fallback to config
             final key = paymentData?['key'] ?? AppConfig.razorpayKey;
 
@@ -630,8 +1001,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             // Open Razorpay checkout
             final options = {
               'key': key,
-              'amount': amount,
-              'name': 'Campus Eats',
+              'amount': razorpayAmount,
+              'name': 'UniNest',
               'description': 'Order #$orderId',
               'order_id': razorpayOrderId,
               'theme': {'color': '#FF6B6B'},
@@ -658,16 +1029,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         // For COD - proceed directly
         Navigator.pop(context);
-
-        // Clear cart
-        appState.clearCart();
+        appState.registerBackendOrder(
+          orderData: orderData,
+          cartSnapshot: cartSnapshot,
+          deliveryAddress: _pendingDeliveryAddress,
+        );
 
         // Show success dialog
         await showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Order Placed'),
-            content: Text('Your order has been placed successfully.'),
+            content: const Text(
+              'Your order has been placed successfully. You can track it from order history.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),

@@ -76,20 +76,55 @@ class CampusAppState extends ChangeNotifier {
   final List<Map<String, dynamic>> _cartItems = [];
   final List<Map<String, dynamic>> _orderHistory = [];
   Timer? _statusUpdateTimer;
-  bool _isLoadingProducts = false;
-  bool _isLoadingCanteens = false;
-  bool _isLoadingCategories = false;
-  bool _hasConnectionError = false;
-  String _errorMessage = '';
-  int _unreadNotificationCount = 0;
   Timer? _notificationTimer;
 
-  bool get isLoadingProducts => _isLoadingProducts;
-  bool get isLoadingCanteens => _isLoadingCanteens;
-  bool get isLoadingCategories => _isLoadingCategories;
+  // Backend pricing cache
+  Map<String, dynamic>? _backendPricing;
+  String? _currentVendorId;
+  String? _currentOfferCode;
+  String _currentFulfillmentType = 'delivery';
+
+  int _unreadNotificationCount = 0;
+  bool _hasConnectionError = false;
+  String _errorMessage = '';
+  bool _isLoadingProducts = false;
+  bool _isLoadingOrders = false;
+  bool _isLoadingCategories = false;
+  bool _isLoadingCanteens = false;
+
   bool get hasConnectionError => _hasConnectionError;
   String get errorMessage => _errorMessage;
   int get unreadNotificationCount => _unreadNotificationCount;
+  bool get isLoadingProducts => _isLoadingProducts;
+  bool get isLoadingOrders => _isLoadingOrders;
+  bool get isLoadingCategories => _isLoadingCategories;
+  bool get isLoadingCanteens => _isLoadingCanteens;
+
+  // Backend pricing getters (fallback to local calculation if no backend pricing)
+  Map<String, dynamic>? get backendPricing => _backendPricing;
+  String? get currentVendorId => _currentVendorId;
+  String? get currentOfferCode => _currentOfferCode;
+  String get currentFulfillmentType => _currentFulfillmentType;
+
+  double get backendSubtotal =>
+      (_backendPricing?['itemSubtotal'] as num?)?.toDouble() ?? subtotal;
+  double get backendDeliveryFee =>
+      (_backendPricing?['deliveryFee'] as num?)?.toDouble() ?? deliveryFee;
+  double get backendPlatformFee =>
+      (_backendPricing?['platformFee'] as num?)?.toDouble() ?? platformFee;
+  double get backendTax =>
+      (_backendPricing?['taxAmount'] as num?)?.toDouble() ?? tax;
+  double get backendDiscount =>
+      (_backendPricing?['platformDiscount'] as num?)?.toDouble() ?? 0.0;
+  double get backendLateNightFee =>
+      (_backendPricing?['lateNightFee'] as num?)?.toDouble() ?? 0.0;
+  bool get hasLateNightFee => backendLateNightFee > 0;
+  double get backendTotal =>
+      (_backendPricing?['finalPayableAmount'] as num?)?.toDouble() ?? total;
+
+  bool get hasActiveCoupon => _backendPricing?['appliedOffer'] != null;
+  Map<String, dynamic>? get appliedCoupon =>
+      _backendPricing?['appliedOffer'] as Map<String, dynamic>?;
 
   // Helper to extract URL string from Map or String
   String? _extractImageUrl(dynamic imageField) {
@@ -102,6 +137,7 @@ class CampusAppState extends ChangeNotifier {
 
   Future<void> _initializeBackendData() async {
     await refreshAllData();
+    await _loadBackendOrders();
   }
 
   // Fetch products from backend API (all pages)
@@ -160,6 +196,21 @@ class CampusAppState extends ChangeNotifier {
                     (product['inStock'] as num?)?.toInt() ??
                     (product['stock'] as num?)?.toInt() ??
                     0,
+                'madeToOrder':
+                    product['madeToOrder'] ?? true, // Default to made-to-order
+                'availability': () {
+                  final inStock =
+                      (product['inStock'] as num?)?.toInt() ??
+                      (product['stock'] as num?)?.toInt() ??
+                      0;
+                  // Made-to-order items are always available, pre-packaged need stock > 0
+                  final isMadeToOrder = product['madeToOrder'] ?? true;
+                  if (isMadeToOrder) {
+                    return 'in_stock'; // Always available for made-to-order
+                  } else {
+                    return inStock >= 0 ? 'in_stock' : 'out_of_stock';
+                  }
+                }(),
                 'canteenId': vendorData is Map<String, dynamic>
                     ? (vendorData['_id']?.toString() ?? '')
                     : '',
@@ -230,6 +281,15 @@ class CampusAppState extends ChangeNotifier {
       _fetchCanteensFromBackend(),
       _fetchCategoriesFromBackend(),
     ]);
+  }
+
+  // Public method to refresh orders from backend
+  Future<void> refreshOrders() async {
+    _isLoadingOrders = true;
+    notifyListeners();
+    await _loadBackendOrders();
+    _isLoadingOrders = false;
+    notifyListeners();
   }
 
   // Test backend connection
@@ -307,6 +367,8 @@ class CampusAppState extends ChangeNotifier {
   // Fetch canteens from backend API
   Future<void> _fetchCanteensFromBackend() async {
     _isLoadingCanteens = true;
+    notifyListeners();
+
     _hasConnectionError = false;
     _errorMessage = '';
     notifyListeners();
@@ -377,6 +439,29 @@ class CampusAppState extends ChangeNotifier {
     } finally {
       _isLoadingCanteens = false;
       notifyListeners();
+    }
+  }
+
+  // Load user orders from backend and sync with local state
+  Future<void> _loadBackendOrders() async {
+    final token = await AuthService.getToken();
+    if (token == null || token.isEmpty) return; // not logged in
+    final result = await ApiService.getUserOrders(token: token);
+    if (result['success'] == true) {
+      final data = result['data'];
+      final List<dynamic> orders = data is Map ? (data['orders'] ?? []) : [];
+      _orderHistory
+        ..clear()
+        ..addAll(
+          orders
+              .whereType<Map<String, dynamic>>()
+              .map((order) => _normalizeBackendOrder(orderData: order))
+              .toList(),
+        );
+      await _persistOrdersToStorage();
+      notifyListeners();
+    } else {
+      debugPrint('❌ Failed to fetch orders: ${result['error']}');
     }
   }
 
@@ -521,8 +606,92 @@ class CampusAppState extends ChangeNotifier {
       return;
     }
     _cartItems.clear();
+    _backendPricing = null;
     notifyListeners();
     _persistCartToStorage();
+  }
+
+  // Fetch pricing from backend for accurate pricing display
+  Future<Map<String, dynamic>> fetchPricingFromBackend({
+    required String vendorId,
+    String? offerCode,
+    String? fulfillmentType,
+  }) async {
+    if (_cartItems.isEmpty) {
+      return {'success': false, 'error': 'Cart is empty'};
+    }
+
+    try {
+      final token = await AuthService.getToken();
+      if (token == null || token.isEmpty) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      _currentVendorId = vendorId;
+      _currentOfferCode = offerCode;
+      if (fulfillmentType != null) {
+        _currentFulfillmentType = fulfillmentType;
+      }
+
+      final result = await ApiService.calculatePricingPreview(
+        token: token,
+        items: _cartItems.toList(),
+        vendorId: vendorId,
+        offerCode: offerCode,
+        fulfillmentType: fulfillmentType ?? _currentFulfillmentType,
+      );
+
+      if (result['success'] == true) {
+        final data = result['data'];
+        if (data is Map<String, dynamic>) {
+          _backendPricing = data['pricing'] as Map<String, dynamic>?;
+          debugPrint('💰 Backend pricing: $_backendPricing');
+          debugPrint('🌙 Late night fee: ${_backendPricing?['lateNightFee']}');
+          notifyListeners();
+        }
+      }
+
+      return result;
+    } catch (e) {
+      debugPrint('Error fetching pricing: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  void clearBackendPricing() {
+    _backendPricing = null;
+    notifyListeners();
+  }
+
+  void registerBackendOrder({
+    required Map<String, dynamic> orderData,
+    List<Map<String, dynamic>>? cartSnapshot,
+    Map<String, dynamic>? deliveryAddress,
+    bool clearCart = true,
+  }) {
+    final normalizedOrder = _normalizeBackendOrder(
+      orderData: orderData,
+      cartSnapshot: cartSnapshot,
+      deliveryAddress: deliveryAddress,
+    );
+    final orderId = normalizedOrder['orderId'] as String;
+    final existingIndex = _orderHistory.indexWhere(
+      (order) => order['orderId'] == orderId,
+    );
+
+    if (existingIndex >= 0) {
+      _orderHistory[existingIndex] = normalizedOrder;
+    } else {
+      _orderHistory.insert(0, normalizedOrder);
+    }
+
+    if (clearCart) {
+      _cartItems.clear();
+    }
+
+    notifyListeners();
+    _persistCartToStorage();
+    _persistOrdersToStorage();
   }
 
   String placeOrder({
@@ -564,6 +733,99 @@ class CampusAppState extends ChangeNotifier {
     return orderId;
   }
 
+  Map<String, dynamic> _normalizeBackendOrder({
+    required Map<String, dynamic> orderData,
+    List<Map<String, dynamic>>? cartSnapshot,
+    Map<String, dynamic>? deliveryAddress,
+  }) {
+    final placedAt = _parseDateTime(orderData['createdAt']) ?? DateTime.now();
+    final estimatedDelivery =
+        _parseDateTime(orderData['estimatedDeliveryTime']) ??
+        _parseDateTime(orderData['updatedAt']) ??
+        _calculateEstimatedDelivery('standard');
+    final status = _normalizeOrderStatus(orderData['status']);
+    final normalizedItems = _normalizeOrderItems(
+      orderData['items'],
+      cartSnapshot: cartSnapshot,
+    );
+    final resolvedDelivery =
+        _normalizeDeliveryAddress(orderData['deliveryAddress']) ??
+        _normalizeDeliveryAddress(deliveryAddress);
+    final trackingSteps = _buildTrackingStepsForStatus(
+      placedAt: placedAt,
+      status: status,
+    );
+    final itemCount = normalizedItems.fold<int>(
+      0,
+      (sum, item) => sum + ((item['quantity'] as num?)?.toInt() ?? 0),
+    );
+    final pricing = orderData['pricing'] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(
+            orderData['pricing'] as Map<String, dynamic>,
+          )
+        : <String, dynamic>{};
+    final subtotal =
+        _readAmount(pricing['subtotal']) ??
+        _readAmount(orderData['totalAmount']) ??
+        normalizedItems.fold<double>(
+          0,
+          (sum, item) =>
+              sum +
+              ((_readAmount(item['price']) ?? 0) *
+                  ((item['quantity'] as num?)?.toInt() ?? 0)),
+        );
+    final deliveryFee =
+        _readAmount(pricing['deliveryFee']) ??
+        _readAmount(orderData['deliveryFee']) ??
+        0.0;
+    final platformFee =
+        _readAmount(pricing['platformFee']) ??
+        _readAmount(orderData['platformFee']) ??
+        0.0;
+    final tax =
+        _readAmount(pricing['tax']) ??
+        _readAmount(orderData['taxAmount']) ??
+        0.0;
+    final lateNightFee =
+        _readAmount(pricing['lateNightFee']) ??
+        _readAmount(orderData['lateNightFee']) ??
+        0.0;
+    final discount =
+        _readAmount(pricing['platformDiscount']) ??
+        _readAmount(pricing['discount']) ??
+        _readAmount(orderData['platformDiscount']) ??
+        _readAmount(orderData['discount']) ??
+        0.0;
+    final total =
+        _readAmount(orderData['finalAmount']) ??
+        _readAmount(pricing['total']) ??
+        _readAmount(orderData['totalAmount']) ??
+        (subtotal + deliveryFee + platformFee + tax + lateNightFee - discount);
+
+    return {
+      'orderId': (orderData['orderNumber'] ?? orderData['_id'] ?? '')
+          .toString(),
+      'backendOrderId': (orderData['_id'] ?? '').toString(),
+      'placedAt': placedAt,
+      'status': status,
+      'paymentMethod': (orderData['paymentMethod'] ?? '').toString(),
+      'deliveryOption': (orderData['fulfillmentType'] ?? 'delivery').toString(),
+      'notes': (orderData['notes'] ?? '').toString(),
+      'subtotal': subtotal,
+      'deliveryFee': deliveryFee,
+      'platformFee': platformFee,
+      'tax': tax,
+      'lateNightFee': lateNightFee,
+      'discount': discount,
+      'total': total,
+      'itemCount': itemCount,
+      'items': normalizedItems,
+      'delivery': resolvedDelivery,
+      'estimatedDelivery': estimatedDelivery,
+      'trackingSteps': trackingSteps,
+    };
+  }
+
   DateTime _calculateEstimatedDelivery(String deliveryOption) {
     final now = DateTime.now();
     switch (deliveryOption.toLowerCase()) {
@@ -578,8 +840,8 @@ class CampusAppState extends ChangeNotifier {
     }
   }
 
-  List<Map<String, dynamic>> _initializeTrackingSteps() {
-    final now = DateTime.now();
+  List<Map<String, dynamic>> _initializeTrackingSteps({DateTime? startTime}) {
+    final now = startTime ?? DateTime.now();
     return [
       {
         'title': 'Order Placed',
@@ -618,6 +880,157 @@ class CampusAppState extends ChangeNotifier {
         'completed': false,
       },
     ];
+  }
+
+  List<Map<String, dynamic>> _buildTrackingStepsForStatus({
+    required DateTime placedAt,
+    required String status,
+  }) {
+    final trackingSteps = _initializeTrackingSteps(startTime: placedAt);
+    final completedIndex = switch (status) {
+      'Confirmed' => 1,
+      'Preparing' => 2,
+      'Ready for Pickup' => 3,
+      'Out for Delivery' => 4,
+      'Delivered' => 5,
+      _ => 0,
+    };
+
+    _markStepsUpTo(trackingSteps, completedIndex);
+    return trackingSteps;
+  }
+
+  List<Map<String, dynamic>> _normalizeOrderItems(
+    dynamic rawItems, {
+    List<Map<String, dynamic>>? cartSnapshot,
+  }) {
+    if (rawItems is List) {
+      final normalizedItems = rawItems
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .map((item) {
+            final product = item['product'] is Map
+                ? Map<String, dynamic>.from(item['product'] as Map)
+                : <String, dynamic>{};
+            final images = product['images'];
+            String imageUrl = '';
+            if (images is List && images.isNotEmpty) {
+              imageUrl = _extractImageUrl(images.first) ?? '';
+            } else {
+              imageUrl =
+                  _extractImageUrl(product['image']) ??
+                  _extractImageUrl(product['imageUrl']) ??
+                  '';
+            }
+
+            return {
+              'id':
+                  (item['productId'] ??
+                          product['_id'] ??
+                          product['id'] ??
+                          item['_id'] ??
+                          '')
+                      .toString(),
+              'name': (item['name'] ?? product['name'] ?? 'Item').toString(),
+              'price':
+                  _readAmount(item['price']) ??
+                  _readAmount(item['unitPrice']) ??
+                  0.0,
+              'imageUrl': imageUrl,
+              'quantity': (item['quantity'] as num?)?.toInt() ?? 1,
+            };
+          })
+          .toList();
+
+      if (normalizedItems.isNotEmpty) {
+        return normalizedItems;
+      }
+    }
+
+    return (cartSnapshot ?? const <Map<String, dynamic>>[])
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  Map<String, dynamic>? _normalizeDeliveryAddress(dynamic rawAddress) {
+    if (rawAddress is! Map) {
+      return null;
+    }
+
+    final address = Map<String, dynamic>.from(rawAddress);
+    final location = address['location'] is Map
+        ? Map<String, dynamic>.from(address['location'] as Map)
+        : <String, dynamic>{};
+
+    final parts = <String>[
+      (address['address'] ?? '').toString(),
+      (address['landmark'] ?? '').toString(),
+      (location['building'] ?? '').toString(),
+      (location['room'] ?? '').toString().isEmpty
+          ? ''
+          : 'Room ${location['room']}',
+      (location['floor'] ?? '').toString().isEmpty
+          ? ''
+          : '${location['floor']} Floor',
+    ].where((part) => part.trim().isNotEmpty).toList();
+
+    return {
+      'address': (address['address'] ?? '').toString(),
+      'type': (address['type'] ?? 'campus').toString(),
+      'landmark': (address['landmark'] ?? '').toString(),
+      'block': (location['building'] ?? '').toString(),
+      'room': (location['room'] ?? '').toString(),
+      'floor': (location['floor'] ?? '').toString(),
+      'location': location,
+      'displayAddress': parts.join(', '),
+    };
+  }
+
+  DateTime? _parseDateTime(dynamic value) {
+    if (value is DateTime) {
+      return value;
+    }
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value);
+    }
+    return null;
+  }
+
+  double? _readAmount(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value);
+    }
+    return null;
+  }
+
+  String _normalizeOrderStatus(dynamic rawStatus) {
+    final status = (rawStatus ?? '').toString().trim().toLowerCase();
+    switch (status) {
+      case 'confirmed':
+        return 'Confirmed';
+      case 'preparing':
+        return 'Preparing';
+      case 'ready':
+      case 'ready_for_pickup':
+      case 'ready for pickup':
+        return 'Ready for Pickup';
+      case 'out_for_delivery':
+      case 'out for delivery':
+      case 'on_the_way':
+        return 'Out for Delivery';
+      case 'delivered':
+        return 'Delivered';
+      case 'cancelled':
+      case 'canceled':
+        return 'Cancelled';
+      case 'pending':
+      case 'placed':
+      default:
+        return 'Placed';
+    }
   }
 
   void updateOrderStatus(String orderId) {

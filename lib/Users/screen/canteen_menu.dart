@@ -74,7 +74,14 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
     return AnimatedBuilder(
       animation: appState,
       builder: (context, _) {
-        final canteen = appState.getCanteenById(widget.canteenId);
+        Map<String, dynamic> canteen;
+        try {
+          canteen = appState.canteens.firstWhere(
+            (c) => c['id'] == widget.canteenId,
+          );
+        } catch (e) {
+          canteen = <String, dynamic>{};
+        }
         final products = appState.productsByCanteen(widget.canteenId);
         final filtered = _filteredProducts(products);
 
@@ -84,7 +91,7 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
             backgroundColor: Colors.white,
             elevation: 0,
             title: Text(
-              canteen?['name'] ?? 'Canteen Menu',
+              canteen['name'] ?? 'Canteen Menu',
               style: const TextStyle(
                 color: Color(0xFF2D3436),
                 fontWeight: FontWeight.bold,

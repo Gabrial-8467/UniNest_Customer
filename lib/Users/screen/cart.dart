@@ -4,11 +4,55 @@ import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
 import 'checkout.dart';
 
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   final bool showBackButton;
   final VoidCallback? onBrowseMenu;
 
   const CartScreen({super.key, this.showBackButton = true, this.onBrowseMenu});
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  bool _isLoadingPricing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch pricing from backend after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchBackendPricing();
+    });
+  }
+
+  Future<void> _fetchBackendPricing() async {
+    final appState = AppStateScope.of(context);
+    if (appState.cartItems.isEmpty) return;
+
+    // Get vendor ID from first cart item
+    final firstItem = appState.cartItems.first;
+    final product = appState.getProductById(firstItem['id'] as String);
+    if (product == null) return;
+
+    final canteen = appState.getCanteenById(product['canteenId'] as String);
+    if (canteen == null) return;
+
+    final vendorId = canteen['id'] as String? ?? canteen['_id'] as String?;
+    if (vendorId == null) return;
+
+    setState(() => _isLoadingPricing = true);
+
+    await appState.fetchPricingFromBackend(
+      vendorId: vendorId,
+      offerCode: appState.currentOfferCode,
+      fulfillmentType: appState.currentFulfillmentType,
+    );
+
+    if (mounted) {
+      setState(() => _isLoadingPricing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,13 +89,13 @@ class CartScreen extends StatelessWidget {
           fontWeight: FontWeight.bold,
         ),
       ),
-      leading: showBackButton
+      leading: widget.showBackButton
           ? IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
             )
           : null,
-      automaticallyImplyLeading: showBackButton,
+      automaticallyImplyLeading: widget.showBackButton,
     );
   }
 
@@ -93,9 +137,9 @@ class CartScreen extends StatelessWidget {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed:
-                  onBrowseMenu ??
+                  widget.onBrowseMenu ??
                   () {
-                    if (showBackButton) {
+                    if (widget.showBackButton) {
                       Navigator.pop(context);
                       return;
                     }
@@ -207,6 +251,7 @@ class CartScreen extends StatelessWidget {
                       onPressed: () {
                         final current = item['quantity'] as int;
                         appState.updateCartQuantity(item['id'], current - 1);
+                        _fetchBackendPricing();
                       },
                       icon: const Icon(Icons.remove, size: 18),
                       padding: EdgeInsets.zero,
@@ -228,6 +273,7 @@ class CartScreen extends StatelessWidget {
                       onPressed: () {
                         final current = item['quantity'] as int;
                         appState.updateCartQuantity(item['id'], current + 1);
+                        _fetchBackendPricing();
                       },
                       icon: const Icon(Icons.add, size: 18),
                       padding: EdgeInsets.zero,
@@ -251,6 +297,17 @@ class CartScreen extends StatelessWidget {
   }
 
   Widget _buildOrderSummary(CampusAppState appState) {
+    // Use backend pricing if available, fallback to local
+    final subtotal = appState.backendSubtotal;
+    final deliveryFee = appState.backendDeliveryFee;
+    final platformFee = appState.backendPlatformFee;
+    final tax = appState.backendTax;
+    final discount = appState.backendDiscount;
+    final lateNightFee = appState.backendLateNightFee;
+    final total = appState.backendTotal;
+    final hasDiscount = discount > 0;
+    final hasLateNightFee = lateNightFee > 0;
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
@@ -267,18 +324,43 @@ class CartScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _summaryRow('Subtotal', appState.subtotal),
-          _summaryRow('Delivery Fee', appState.deliveryFee),
-          _summaryRow('Platform Fee', appState.platformFee),
-          _summaryRow('Tax', appState.tax),
+          if (_isLoadingPricing)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
+          _summaryRow('Subtotal', subtotal),
+          _summaryRow('Delivery Fee', deliveryFee),
+          _summaryRow('Platform Fee', platformFee),
+          _summaryRow('Tax (5%)', tax),
+          if (hasLateNightFee) ...[
+            _summaryRow(
+              'Late Night Fee (11PM-5AM)',
+              lateNightFee,
+              isLateNight: true,
+            ),
+          ],
+          if (hasDiscount) ...[
+            _summaryRow(
+              'Discount ${appState.appliedCoupon?['code'] ?? ''}',
+              -discount,
+              isDiscount: true,
+            ),
+          ],
           const Divider(height: 18),
-          _summaryRow('Total', appState.total, isTotal: true),
+          _summaryRow('Total', total, isTotal: true),
         ],
       ),
     );
   }
 
-  Widget _summaryRow(String label, double amount, {bool isTotal = false}) {
+  Widget _summaryRow(
+    String label,
+    double amount, {
+    bool isTotal = false,
+    bool isDiscount = false,
+    bool isLateNight = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -293,13 +375,17 @@ class CartScreen extends StatelessWidget {
             ),
           ),
           Text(
-            '\u20B9${amount.toStringAsFixed(2)}',
+            '${amount < 0 ? '-' : ''}\u20B9${amount.abs().toStringAsFixed(2)}',
             style: TextStyle(
               fontSize: isTotal ? 18 : 14,
               fontWeight: FontWeight.bold,
-              color: isTotal
-                  ? const Color(0xFFFF6B6B)
-                  : const Color(0xFF2D3436),
+              color: isDiscount
+                  ? Colors.green
+                  : (isLateNight
+                        ? Colors.orange
+                        : (isTotal
+                              ? const Color(0xFFFF6B6B)
+                              : const Color(0xFF2D3436))),
             ),
           ),
         ],
@@ -327,7 +413,7 @@ class CartScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   Text(
-                    '\u20B9${appState.total.toStringAsFixed(2)}',
+                    '\u20B9${appState.backendTotal.toStringAsFixed(2)}',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,

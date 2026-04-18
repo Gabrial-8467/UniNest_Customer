@@ -42,8 +42,12 @@ class OrderHistoryScreen extends StatelessWidget {
                 : null,
             automaticallyImplyLeading: showBackButton,
           ),
-          body: orders.isEmpty
-              ? _buildEmptyState()
+          body: appState.isLoadingOrders && orders.isEmpty
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                )
+              : orders.isEmpty
+              ? _buildEmptyState(context)
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: orders.length,
@@ -58,7 +62,7 @@ class OrderHistoryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -89,9 +93,18 @@ class OrderHistoryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Your completed orders will show up here.',
+              'Your placed orders will show up here, and you can track them anytime.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => AppStateScope.of(context).refreshOrders(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
             ),
           ],
         ),
