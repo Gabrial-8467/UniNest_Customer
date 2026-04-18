@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
+import '../widgets/rating_dialog.dart';
 import 'live_chat.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
@@ -547,13 +548,16 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   Widget _buildActionButtons(Map<String, dynamic> order) {
-    final status = order['status'] as String;
+    final status = (order['status'] as String? ?? 'unknown').toLowerCase();
+    final isDelivered =
+        status == 'delivered' || status == 'completed' || status == 'picked up';
+    final isOutForDelivery = status == 'out for delivery';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          if (status == 'Out for Delivery') ...[
+          if (isOutForDelivery) ...[
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -572,7 +576,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             ),
             const SizedBox(height: 12),
           ],
-          if (status == 'Delivered') ...[
+          if (isDelivered) ...[
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -660,67 +664,13 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   void _showRateOrderDialog(Map<String, dynamic> order) {
-    int rating = 0;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Rate Your Order'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('How was your experience?'),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (index) {
-                  return IconButton(
-                    onPressed: () {
-                      setState(() {
-                        rating = index + 1;
-                      });
-                    },
-                    icon: Icon(
-                      index < rating ? Icons.star : Icons.star_border,
-                      color: AppColors.primary,
-                      size: 32,
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  hintText: 'Add a comment (optional)',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: rating > 0
-                  ? () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Thank you for your feedback!'),
-                          backgroundColor: Color(0xFFFF6B6B),
-                        ),
-                      );
-                    }
-                  : null,
-              child: const Text('Submit'),
-            ),
-          ],
-        ),
-      ),
+    showRatingDialog(
+      context,
+      widget.orderId,
+      onSubmitted: () {
+        // Refresh order status after rating submitted
+        AppStateScope.of(context).updateOrderStatus(widget.orderId);
+      },
     );
   }
 

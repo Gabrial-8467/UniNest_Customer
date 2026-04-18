@@ -15,45 +15,6 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  bool _isLoadingPricing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Fetch pricing from backend after first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchBackendPricing();
-    });
-  }
-
-  Future<void> _fetchBackendPricing() async {
-    final appState = AppStateScope.of(context);
-    if (appState.cartItems.isEmpty) return;
-
-    // Get vendor ID from first cart item
-    final firstItem = appState.cartItems.first;
-    final product = appState.getProductById(firstItem['id'] as String);
-    if (product == null) return;
-
-    final canteen = appState.getCanteenById(product['canteenId'] as String);
-    if (canteen == null) return;
-
-    final vendorId = canteen['id'] as String? ?? canteen['_id'] as String?;
-    if (vendorId == null) return;
-
-    setState(() => _isLoadingPricing = true);
-
-    await appState.fetchPricingFromBackend(
-      vendorId: vendorId,
-      offerCode: appState.currentOfferCode,
-      fulfillmentType: appState.currentFulfillmentType,
-    );
-
-    if (mounted) {
-      setState(() => _isLoadingPricing = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
@@ -251,7 +212,6 @@ class _CartScreenState extends State<CartScreen> {
                       onPressed: () {
                         final current = item['quantity'] as int;
                         appState.updateCartQuantity(item['id'], current - 1);
-                        _fetchBackendPricing();
                       },
                       icon: const Icon(Icons.remove, size: 18),
                       padding: EdgeInsets.zero,
@@ -273,7 +233,6 @@ class _CartScreenState extends State<CartScreen> {
                       onPressed: () {
                         final current = item['quantity'] as int;
                         appState.updateCartQuantity(item['id'], current + 1);
-                        _fetchBackendPricing();
                       },
                       icon: const Icon(Icons.add, size: 18),
                       padding: EdgeInsets.zero,
@@ -297,16 +256,8 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildOrderSummary(CampusAppState appState) {
-    // Use backend pricing if available, fallback to local
-    final subtotal = appState.backendSubtotal;
-    final deliveryFee = appState.backendDeliveryFee;
-    final platformFee = appState.backendPlatformFee;
-    final tax = appState.backendTax;
-    final discount = appState.backendDiscount;
-    final lateNightFee = appState.backendLateNightFee;
-    final total = appState.backendTotal;
-    final hasDiscount = discount > 0;
-    final hasLateNightFee = lateNightFee > 0;
+    // Show only items subtotal, no extra fees
+    final subtotal = appState.subtotal;
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -322,35 +273,7 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          if (_isLoadingPricing)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: LinearProgressIndicator(minHeight: 2),
-            ),
-          _summaryRow('Subtotal', subtotal),
-          _summaryRow('Delivery Fee', deliveryFee),
-          _summaryRow('Platform Fee', platformFee),
-          _summaryRow('Tax (5%)', tax),
-          if (hasLateNightFee) ...[
-            _summaryRow(
-              'Late Night Fee (11PM-5AM)',
-              lateNightFee,
-              isLateNight: true,
-            ),
-          ],
-          if (hasDiscount) ...[
-            _summaryRow(
-              'Discount ${appState.appliedCoupon?['code'] ?? ''}',
-              -discount,
-              isDiscount: true,
-            ),
-          ],
-          const Divider(height: 18),
-          _summaryRow('Total', total, isTotal: true),
-        ],
-      ),
+      child: Column(children: [_summaryRow('Total', subtotal, isTotal: true)]),
     );
   }
 
@@ -413,7 +336,7 @@ class _CartScreenState extends State<CartScreen> {
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   Text(
-                    '\u20B9${appState.backendTotal.toStringAsFixed(2)}',
+                    '\u20B9${appState.subtotal.toStringAsFixed(2)}',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,

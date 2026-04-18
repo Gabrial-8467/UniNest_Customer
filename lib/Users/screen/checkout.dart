@@ -344,14 +344,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildOrderSummary(CampusAppState appState) {
-    // Use backend pricing if available, otherwise fallback to local calculation
-    final subtotal = appState.backendSubtotal;
-    final deliveryFee = appState.backendDeliveryFee;
-    final platformFee = appState.backendPlatformFee;
-    final tax = appState.backendTax;
-    final discount = appState.backendDiscount;
-    final lateNightFee = appState.backendLateNightFee;
-    final total = appState.backendTotal;
+    // Use backend pricing only, no fallback
+    final pricing = appState.backendPricing;
+    final subtotal = (pricing?['itemSubtotal'] as num?)?.toDouble() ?? 0.0;
+    final deliveryFee = (pricing?['deliveryFee'] as num?)?.toDouble() ?? 0.0;
+    final platformFee = (pricing?['platformFee'] as num?)?.toDouble() ?? 0.0;
+    final tax = (pricing?['taxAmount'] as num?)?.toDouble() ?? 0.0;
+    final discount = (pricing?['platformDiscount'] as num?)?.toDouble() ?? 0.0;
+    final lateNightFee = (pricing?['lateNightFee'] as num?)?.toDouble() ?? 0.0;
+    final total = (pricing?['finalPayableAmount'] as num?)?.toDouble() ?? 0.0;
     final hasDiscount = discount > 0;
     final hasLateNightFee = lateNightFee > 0;
     debugPrint(
@@ -821,7 +822,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ],
                 )
               : Text(
-                  'Place Order - \u20B9${appState.backendTotal.toStringAsFixed(2)}',
+                  'Place Order - \u20B9${((appState.backendPricing?['finalPayableAmount'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,

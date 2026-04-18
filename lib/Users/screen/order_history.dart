@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
+import '../widgets/rating_dialog.dart';
 import 'order_tracking.dart';
 
 class OrderHistoryScreen extends StatelessWidget {
@@ -222,35 +223,63 @@ class OrderHistoryScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                // Update order status before navigating
-                AppStateScope.of(context).updateOrderStatus(order['orderId']);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => OrderTrackingScreen(
-                      orderId: order['orderId'],
-                      showBackButton: true,
-                    ),
+          if (status.toLowerCase() == 'delivered' ||
+              status.toLowerCase() == 'completed' ||
+              status.toLowerCase() == 'picked up') ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  showRatingDialog(
+                    context,
+                    order['orderId'],
+                    onSubmitted: () {},
+                  );
+                },
+                icon: const Icon(Icons.star, size: 16),
+                label: const Text('Rate Order'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                );
-              },
-              icon: const Icon(Icons.location_on, size: 16),
-              label: const Text('Track Order'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF6B6B),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 8),
               ),
             ),
-          ),
+          ] else ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  // Update order status before navigating
+                  AppStateScope.of(context).updateOrderStatus(order['orderId']);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OrderTrackingScreen(
+                        orderId: order['orderId'],
+                        showBackButton: true,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.location_on, size: 16),
+                label: const Text('Track Order'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B6B),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
