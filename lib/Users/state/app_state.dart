@@ -11,12 +11,26 @@ import '../../../utils/utils.dart';
 
 class CampusAppState extends ChangeNotifier {
   CampusAppState() {
+    // DEBUG: Clear cart storage on startup to remove ghost items
+    // Comment out the next line after debugging
+    _clearCartStorage();
     _restoreCartFromStorage();
     _restoreFavoritesFromStorage();
     _restoreOrdersFromStorage();
     _startStatusUpdateTimer();
     _initializeBackendData();
     startNotificationPolling();
+  }
+
+  // DEBUG: Method to completely wipe cart storage
+  Future<void> _clearCartStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(AppConstants.cartKey);
+      debugPrint('🗑️ Cart storage cleared');
+    } catch (e) {
+      debugPrint('Error clearing cart storage: $e');
+    }
   }
 
   @override
@@ -77,6 +91,16 @@ class CampusAppState extends ChangeNotifier {
   final List<Map<String, dynamic>> _orderHistory = [];
   Timer? _statusUpdateTimer;
   Timer? _notificationTimer;
+
+  // Track orders currently being updated to prevent duplicate calls
+  final Set<String> _updatingOrderIds = {};
+
+  // Track last update time for each order to enforce cooldown
+  final Map<String, DateTime> _lastOrderUpdateTime = {};
+  static const _orderUpdateCooldown = Duration(seconds: 3);
+
+  // Track products currently being added to cart to prevent duplicate snackbars
+  final Set<String> _addingToCartIds = {};
 
   // Backend pricing cache
   Map<String, dynamic>? _backendPricing;
@@ -546,24 +570,44 @@ class CampusAppState extends ChangeNotifier {
     _persistFavoritesToStorage();
   }
 
-  void addToCart(String productId, {int quantity = 1}) {
+  // Add item to cart
+  // Returns true if item was added (or quantity updated), false if duplicate click prevented
+  bool addToCart(String productId, {int quantity = 1}) {
+    debugPrint('🛒 addToCart called with productId: $productId');
+
     if (quantity <= 0) {
-      return;
+      debugPrint('❌ Invalid quantity: $quantity');
+      return false;
+    }
+
+    // Skip if already adding this product (prevent duplicate snackbars)
+    if (_addingToCartIds.contains(productId)) {
+      debugPrint('⚠️ Product $productId already being added to cart, skipping');
+      return false;
     }
 
     final product = _getProductRef(productId);
     if (product == null) {
-      return;
+      debugPrint('❌ Product not found for id: $productId');
+      return false;
     }
+
+    debugPrint('✅ Found product: ${product['name']} (id: ${product['id']})');
+    _addingToCartIds.add(productId);
 
     final existingItem = _getCartItemRef(productId);
     if (existingItem != null) {
+      debugPrint(
+        '📝 Updating quantity for existing item: ${existingItem['name']}',
+      );
       existingItem['quantity'] = (existingItem['quantity'] as int) + quantity;
       notifyListeners();
       _persistCartToStorage();
-      return;
+      _addingToCartIds.remove(productId);
+      return true;
     }
 
+    debugPrint('🆕 Adding new item to cart: ${product['name']}');
     _cartItems.add({
       'id': product['id'],
       'name': product['name'],
@@ -575,8 +619,22 @@ class CampusAppState extends ChangeNotifier {
       'reviewCount': product['reviewCount'],
     });
 
+    debugPrint('📊 Cart now has ${_cartItems.length} items');
+    for (var i = 0; i < _cartItems.length; i++) {
+      debugPrint(
+        '  [$i] ${_cartItems[i]['name']} (id: ${_cartItems[i]['id']})',
+      );
+    }
+
     notifyListeners();
     _persistCartToStorage();
+
+    // Small delay before allowing next add to prevent rapid-fire snackbars
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _addingToCartIds.remove(productId);
+    });
+
+    return true;
   }
 
   void updateCartQuantity(String productId, int quantity) {
@@ -823,6 +881,8 @@ class CampusAppState extends ChangeNotifier {
       'delivery': resolvedDelivery,
       'estimatedDelivery': estimatedDelivery,
       'trackingSteps': trackingSteps,
+      'deliveryOtp':
+          orderData['deliveryOtp'], // Preserve delivery OTP for customer
     };
   }
 
@@ -1033,35 +1093,112 @@ class CampusAppState extends ChangeNotifier {
     }
   }
 
-  void updateOrderStatus(String orderId) {
-    final order = _getOrderById(orderId);
-    if (order == null) return;
-
-    final now = DateTime.now();
-    final trackingSteps = (order['trackingSteps'] as List)
-        .cast<Map<String, dynamic>>();
-
-    // Update order status based on time elapsed
-    final timeSincePlaced = now.difference(order['placedAt'] as DateTime);
-
-    if (timeSincePlaced.inMinutes >= 35) {
-      order['status'] = 'Delivered';
-      _markAllStepsCompleted(trackingSteps);
-    } else if (timeSincePlaced.inMinutes >= 30) {
-      order['status'] = 'Out for Delivery';
-      _markStepsUpTo(trackingSteps, 4);
-    } else if (timeSincePlaced.inMinutes >= 25) {
-      order['status'] = 'Ready for Pickup';
-      _markStepsUpTo(trackingSteps, 3);
-    } else if (timeSincePlaced.inMinutes >= 15) {
-      order['status'] = 'Preparing';
-      _markStepsUpTo(trackingSteps, 2);
-    } else if (timeSincePlaced.inMinutes >= 5) {
-      order['status'] = 'Confirmed';
-      _markStepsUpTo(trackingSteps, 1);
+  // Fetch and update order status from backend
+  // Returns true if update was attempted, false if skipped (cooldown or in progress)
+  Future<bool> updateOrderStatus(String orderId) async {
+    // Skip if already updating this order (prevent duplicate popups)
+    if (_updatingOrderIds.contains(orderId)) {
+      debugPrint('Order $orderId status update already in progress, skipping');
+      return false;
     }
 
-    notifyListeners();
+    // Check cooldown period
+    final lastUpdate = _lastOrderUpdateTime[orderId];
+    if (lastUpdate != null) {
+      final timeSinceLastUpdate = DateTime.now().difference(lastUpdate);
+      if (timeSinceLastUpdate < _orderUpdateCooldown) {
+        debugPrint(
+          'Order $orderId on cooldown (${timeSinceLastUpdate.inMilliseconds}ms), skipping',
+        );
+        return false;
+      }
+    }
+
+    final token = await AuthService.getToken();
+    if (token == null || token.isEmpty) return false;
+
+    _updatingOrderIds.add(orderId);
+    _lastOrderUpdateTime[orderId] = DateTime.now();
+
+    try {
+      final result = await ApiService.getOrderById(
+        token: token,
+        orderId: orderId,
+      );
+      if (result['success'] == true && result['data'] != null) {
+        final backendOrder = result['data'] is Map<String, dynamic>
+            ? result['data'] as Map<String, dynamic>
+            : (result['data'] as Map?)?.cast<String, dynamic>();
+
+        if (backendOrder != null) {
+          final existingOrder = _getOrderById(orderId);
+          if (existingOrder != null) {
+            // Update status from backend
+            final newStatus = _normalizeOrderStatus(
+              backendOrder['status']?.toString() ?? '',
+            );
+            var hasChanges = false;
+            if (newStatus.isNotEmpty && existingOrder['status'] != newStatus) {
+              existingOrder['status'] = newStatus;
+              _updateTrackingStepsFromStatus(existingOrder, newStatus);
+              hasChanges = true;
+            }
+            // Update estimated delivery time from backend
+            final newEstimatedDelivery = _parseDateTime(
+              backendOrder['estimatedDeliveryTime'],
+            );
+            if (newEstimatedDelivery != null) {
+              final currentEstimated = _parseDateTime(
+                existingOrder['estimatedDelivery'],
+              );
+              if (currentEstimated == null ||
+                  newEstimatedDelivery != currentEstimated) {
+                existingOrder['estimatedDelivery'] = newEstimatedDelivery;
+                hasChanges = true;
+              }
+            }
+            if (hasChanges) {
+              notifyListeners();
+              await _persistOrdersToStorage();
+            }
+          }
+        }
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Error fetching order status from backend: $e');
+      return false;
+    } finally {
+      _updatingOrderIds.remove(orderId);
+    }
+  }
+
+  // Update tracking steps based on status from backend
+  void _updateTrackingStepsFromStatus(
+    Map<String, dynamic> order,
+    String status,
+  ) {
+    final trackingSteps = (order['trackingSteps'] as List?)
+        ?.cast<Map<String, dynamic>>();
+    if (trackingSteps == null) return;
+
+    switch (status) {
+      case 'Delivered':
+      case 'Completed':
+      case 'Picked Up':
+        _markAllStepsCompleted(trackingSteps);
+      case 'Out for Delivery':
+        _markStepsUpTo(trackingSteps, 4);
+      case 'Ready for Pickup':
+        _markStepsUpTo(trackingSteps, 3);
+      case 'Preparing':
+        _markStepsUpTo(trackingSteps, 2);
+      case 'Confirmed':
+        _markStepsUpTo(trackingSteps, 1);
+      default:
+        // Keep existing step state for 'Placed' or unknown statuses
+        break;
+    }
   }
 
   void _markStepsUpTo(List<Map<String, dynamic>> steps, int index) {
@@ -1076,26 +1213,84 @@ class CampusAppState extends ChangeNotifier {
     }
   }
 
+  // Poll for order status updates from backend every 30 seconds
   void _startStatusUpdateTimer() {
     _statusUpdateTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _updateAllOrderStatuses();
+      _pollOrderStatusUpdates();
     });
   }
 
-  void _updateAllOrderStatuses() {
+  // Fetch all active orders' latest status from backend
+  Future<void> _pollOrderStatusUpdates() async {
+    if (_orderHistory.isEmpty) return;
+
+    final token = await AuthService.getToken();
+    if (token == null || token.isEmpty) return;
+
     bool hasUpdates = false;
+
     for (final order in _orderHistory) {
       final orderId = order['orderId'] as String;
       final oldStatus = order['status'] as String;
-      updateOrderStatus(orderId);
-      if (oldStatus != order['status']) {
-        hasUpdates = true;
+
+      // Skip polling for terminal statuses
+      if (_isTerminalStatus(oldStatus)) continue;
+
+      try {
+        final result = await ApiService.getOrderById(
+          token: token,
+          orderId: orderId,
+        );
+        if (result['success'] == true && result['data'] != null) {
+          final backendOrder = result['data'] is Map<String, dynamic>
+              ? result['data'] as Map<String, dynamic>
+              : (result['data'] as Map?)?.cast<String, dynamic>();
+
+          if (backendOrder != null) {
+            final newStatus = _normalizeOrderStatus(
+              backendOrder['status']?.toString() ?? '',
+            );
+            if (newStatus.isNotEmpty && oldStatus != newStatus) {
+              order['status'] = newStatus;
+              _updateTrackingStepsFromStatus(order, newStatus);
+              hasUpdates = true;
+            }
+            // Update estimated delivery time from backend
+            final newEstimatedDelivery = _parseDateTime(
+              backendOrder['estimatedDeliveryTime'],
+            );
+            if (newEstimatedDelivery != null) {
+              final currentEstimated = _parseDateTime(
+                order['estimatedDelivery'],
+              );
+              if (currentEstimated == null ||
+                  newEstimatedDelivery != currentEstimated) {
+                order['estimatedDelivery'] = newEstimatedDelivery;
+                hasUpdates = true;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error polling order $orderId status: $e');
       }
     }
+
     if (hasUpdates) {
       notifyListeners();
-      _persistOrdersToStorage();
+      await _persistOrdersToStorage();
     }
+  }
+
+  // Check if order status is terminal (no more updates expected)
+  bool _isTerminalStatus(String status) {
+    final terminalStatuses = [
+      'delivered',
+      'completed',
+      'cancelled',
+      'rejected',
+    ];
+    return terminalStatuses.contains(status.toLowerCase());
   }
 
   Map<String, dynamic>? getOrderById(String orderId) {

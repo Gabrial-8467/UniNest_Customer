@@ -665,6 +665,7 @@ class _HomeScreenState extends State<HomeScreen> {
       SliverToBoxAdapter(
         child: _buildCanteenSection(canteens, appState.isLoadingCanteens),
       ),
+      SliverToBoxAdapter(child: _buildFeaturedProductsSection(appState)),
       if (products.isEmpty && !appState.isLoadingProducts)
         SliverFillRemaining(
           hasScrollBody: false,
@@ -676,6 +677,209 @@ class _HomeScreenState extends State<HomeScreen> {
       else
         _buildProductsSliver(appState, products),
     ];
+  }
+
+  Widget _buildFeaturedProductsSection(CampusAppState appState) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _fetchFeaturedProducts(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final result = snapshot.data!;
+        if (result['success'] != true) {
+          return const SizedBox.shrink();
+        }
+
+        final data = result['data'];
+        final List<dynamic> featuredProducts = data is Map
+            ? (data['products'] ?? [])
+            : (data ?? []);
+
+        if (featuredProducts.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF6B6B),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Featured Products',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2D3436),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 220,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: featuredProducts.length,
+                itemBuilder: (context, index) {
+                  final product = featuredProducts[index];
+                  return _buildFeaturedProductCard(product, appState);
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> _fetchFeaturedProducts() async {
+    try {
+      final token = await AuthService.getToken();
+      return await ApiService.getFeaturedProducts(token: token);
+    } catch (e) {
+      debugPrint('Error fetching featured products: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Widget _buildFeaturedProductCard(
+    Map<String, dynamic> product,
+    CampusAppState appState,
+  ) {
+    final productId = (product['id'] ?? product['_id'] ?? '').toString();
+    final name = (product['name'] ?? 'Product').toString();
+    final price = (product['price'] as num?)?.toDouble() ?? 0;
+    final imageUrl = product['imageUrl'] is Map
+        ? product['imageUrl']['url'] ?? ''
+        : (product['imageUrl'] ?? product['image'] ?? '').toString();
+    final canteenName =
+        (product['canteenName'] ?? product['vendorName'] ?? 'Unknown')
+            .toString();
+
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.only(right: 12),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailsScreen(productId: productId),
+            ),
+          );
+        },
+        child: Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
+                ),
+                child: imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        height: 100,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          height: 100,
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image_not_supported),
+                        ),
+                      )
+                    : Container(
+                        height: 100,
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.image_not_supported),
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      canteenName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '\u20B9${price.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: Color(0xFFFF6B6B),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            final added = appState.addToCart(productId);
+                            if (added) {
+                              _showAddToCartSnackbar();
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF6B6B),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(
+                              Icons.add,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildErrorBanner(String message) {
@@ -792,7 +996,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const AllCanteensScreen(),
+                        builder: (context) =>
+                            AllCanteensScreen(initialSearchQuery: searchQuery),
                       ),
                     );
                   },
@@ -913,8 +1118,12 @@ class _HomeScreenState extends State<HomeScreen> {
               appState.setFavorite(productId, nextValue);
             },
             onAddToCart: () {
-              appState.addToCart((product['id'] ?? '').toString());
-              _showAddToCartSnackbar();
+              final added = appState.addToCart(
+                (product['id'] ?? '').toString(),
+              );
+              if (added) {
+                _showAddToCartSnackbar();
+              }
             },
           );
         }, childCount: products.length),

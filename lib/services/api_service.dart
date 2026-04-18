@@ -463,7 +463,7 @@ class ApiService {
     String? order,
     bool? available,
   }) async {
-    final queryParams = <String, String>{};
+    final queryParams = <String, String>{'featured': 'true'};
     if (vendor != null) queryParams['vendor'] = vendor;
     if (category != null) queryParams['category'] = category;
     if (search != null) queryParams['search'] = search;
@@ -479,7 +479,7 @@ class ApiService {
 
     return await _makeRequest(
       method: 'GET',
-      endpoint: ApiEndpoints.featuredProducts,
+      endpoint: ApiEndpoints.products,
       token: token,
       queryParams: queryParams,
       usePublicBaseUrl: true,

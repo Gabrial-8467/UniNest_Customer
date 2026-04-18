@@ -72,13 +72,15 @@ class WishlistScreen extends StatelessWidget {
                     );
                   },
                   onAddToCart: (productId) {
-                    appState.addToCart(productId);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Added to cart'),
-                        backgroundColor: Color(0xFFFF6B6B),
-                      ),
-                    );
+                    final added = appState.addToCart(productId);
+                    if (added) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Added to cart'),
+                          backgroundColor: Color(0xFFFF6B6B),
+                        ),
+                      );
+                    }
                   },
                 ),
         );

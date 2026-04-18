@@ -800,10 +800,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       child: ElevatedButton(
         onPressed: canOrder
             ? () {
-                appState.addToCart(product['id'], quantity: quantity);
-                _showAddToCartSnackbar(
-                  productName: (product['name'] ?? 'Item').toString(),
+                final added = appState.addToCart(
+                  product['id'],
+                  quantity: quantity,
                 );
+                if (added) {
+                  _showAddToCartSnackbar(
+                    productName: (product['name'] ?? 'Item').toString(),
+                  );
+                }
               }
             : null,
         style: ElevatedButton.styleFrom(

@@ -26,7 +26,7 @@ class ApiEndpoints {
   static const String vendors = '/api/vendors';
   static const String nearbyVendors = '/api/vendors/nearby';
   static const String products = '/api/products';
-  static const String featuredProducts = '/api/products/featured';
+  // Featured products use products endpoint with featured=true query param
   static const String categories = '/api/categories';
   static const String search = '/api/search';
 

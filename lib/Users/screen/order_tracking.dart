@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../utils/app_theme.dart';
@@ -20,6 +22,8 @@ class OrderTrackingScreen extends StatefulWidget {
 }
 
 class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+  Timer? _countdownTimer;
+
   @override
   void initState() {
     super.initState();
@@ -27,6 +31,42 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppStateScope.of(context).updateOrderStatus(widget.orderId);
     });
+    // Start countdown timer to refresh estimated delivery display
+    _startCountdownTimer();
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startCountdownTimer() {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        setState(() {}); // Refresh UI to update countdown
+      }
+    });
+  }
+
+  String _formatCountdown(DateTime estimatedDelivery) {
+    final now = DateTime.now();
+    final difference = estimatedDelivery.difference(now);
+
+    if (difference.isNegative) {
+      return 'Arriving soon';
+    }
+
+    final hours = difference.inHours;
+    final minutes = difference.inMinutes.remainder(60);
+
+    if (hours > 0) {
+      return '${hours}h ${minutes}m remaining';
+    } else if (minutes > 0) {
+      return '${minutes}m remaining';
+    } else {
+      return 'Arriving any moment';
+    }
   }
 
   @override
@@ -92,15 +132,19 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       automaticallyImplyLeading: widget.showBackButton,
       actions: [
         IconButton(
-          onPressed: () {
+          onPressed: () async {
             // Refresh order status
-            AppStateScope.of(context).updateOrderStatus(widget.orderId);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Status updated'),
-                backgroundColor: Color(0xFFFF6B6B),
-              ),
-            );
+            final updated = await AppStateScope.of(
+              context,
+            ).updateOrderStatus(widget.orderId);
+            if (updated && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Status updated'),
+                  backgroundColor: Color(0xFFFF6B6B),
+                ),
+              );
+            }
           },
           icon: const Icon(Icons.refresh, color: AppColors.textPrimary),
         ),
@@ -187,17 +231,34 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.access_time, color: statusColor, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
+                  Row(
+                    children: [
+                      Icon(Icons.access_time, color: statusColor, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Estimated: ${_formatTime(estimatedDelivery)}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: statusColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 28),
                     child: Text(
-                      'Estimated delivery: ${_formatTime(estimatedDelivery)}',
+                      _formatCountdown(estimatedDelivery),
                       style: TextStyle(
-                        fontSize: 14,
-                        color: statusColor,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),

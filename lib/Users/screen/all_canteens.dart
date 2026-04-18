@@ -1,10 +1,42 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
 import 'canteen_menu.dart';
 
-class AllCanteensScreen extends StatelessWidget {
-  const AllCanteensScreen({super.key});
+class AllCanteensScreen extends StatefulWidget {
+  final String? initialSearchQuery;
+
+  const AllCanteensScreen({super.key, this.initialSearchQuery});
+
+  @override
+  State<AllCanteensScreen> createState() => _AllCanteensScreenState();
+}
+
+class _AllCanteensScreenState extends State<AllCanteensScreen> {
+  String searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    searchQuery = widget.initialSearchQuery ?? '';
+  }
+
+  List<Map<String, dynamic>> _filteredCanteens(
+    List<Map<String, dynamic>> canteens,
+  ) {
+    final query = searchQuery.trim().toLowerCase();
+
+    if (query.isEmpty) {
+      return canteens;
+    }
+
+    return canteens.where((canteen) {
+      final name = (canteen['name'] ?? '').toString().toLowerCase();
+      final location = (canteen['location'] ?? '').toString().toLowerCase();
+      return name.contains(query) || location.contains(query);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,7 +45,8 @@ class AllCanteensScreen extends StatelessWidget {
     return AnimatedBuilder(
       animation: appState,
       builder: (context, _) {
-        final canteens = appState.canteens.toList();
+        final allCanteens = appState.canteens.toList();
+        final canteens = _filteredCanteens(allCanteens);
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),
@@ -32,33 +65,143 @@ class AllCanteensScreen extends StatelessWidget {
               icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3436)),
             ),
           ),
-          body: canteens.isEmpty
-              ? const Center(child: Text('No canteens available.'))
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: canteens.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final canteen = canteens[index];
-                    final canteenId = (canteen['id'] ?? '').toString();
-
-                    return _AllCanteenTile(
-                      name: (canteen['name'] ?? 'Canteen').toString(),
-                      location: (canteen['location'] ?? '').toString(),
-                      rating: (canteen['rating'] as num?)?.toDouble() ?? 0,
-                      isOpen: canteen['isOpen'] == true,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                CanteenMenuScreen(canteenId: canteenId),
-                          ),
-                        );
-                      },
-                    );
+          body: Column(
+            children: [
+              // Search Bar
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                child: TextField(
+                  controller: TextEditingController(text: searchQuery)
+                    ..selection = TextSelection.collapsed(
+                      offset: searchQuery.length,
+                    ),
+                  decoration: InputDecoration(
+                    hintText: 'Search canteens by name or location...',
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: AppColors.textLight,
+                    ),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 2,
+                      ),
+                    ),
+                    suffixIcon: searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.clear,
+                              color: AppColors.textLight,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      searchQuery = value;
+                    });
                   },
                 ),
+              ),
+              // Results count
+              if (searchQuery.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${canteens.length} result${canteens.length != 1 ? 's' : ''}',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+              // Canteen List
+              Expanded(
+                child: canteens.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.search_off_rounded,
+                              size: 64,
+                              color: AppColors.textLight,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              searchQuery.isEmpty
+                                  ? 'No canteens available'
+                                  : 'No canteens found',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            if (searchQuery.isNotEmpty)
+                              Text(
+                                'Try a different search term',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: canteens.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final canteen = canteens[index];
+                          final canteenId = (canteen['id'] ?? '').toString();
+
+                          return _AllCanteenTile(
+                            name: (canteen['name'] ?? 'Canteen').toString(),
+                            location: (canteen['location'] ?? '').toString(),
+                            rating:
+                                (canteen['rating'] as num?)?.toDouble() ?? 0,
+                            isOpen: canteen['isOpen'] == true,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      CanteenMenuScreen(canteenId: canteenId),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         );
       },
     );

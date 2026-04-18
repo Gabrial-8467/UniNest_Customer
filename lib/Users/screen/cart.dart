@@ -26,7 +26,7 @@ class _CartScreenState extends State<CartScreen> {
 
         return Scaffold(
           backgroundColor: AppColors.background,
-          appBar: _buildAppBar(context),
+          appBar: _buildAppBar(context, appState),
           body: cartItems.isEmpty
               ? _buildEmptyCart(context)
               : _buildCartContent(appState),
@@ -38,7 +38,10 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    CampusAppState appState,
+  ) {
     return AppBar(
       backgroundColor: AppColors.surface,
       elevation: 0,
@@ -57,6 +60,18 @@ class _CartScreenState extends State<CartScreen> {
             )
           : null,
       automaticallyImplyLeading: widget.showBackButton,
+      actions: [
+        IconButton(
+          onPressed: () {
+            appState.clearCart();
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Cart cleared')));
+          },
+          icon: const Icon(Icons.delete_outline, color: AppColors.textPrimary),
+          tooltip: 'Clear Cart',
+        ),
+      ],
     );
   }
 
