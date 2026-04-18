@@ -42,9 +42,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   void _startCountdownTimer() {
-    _countdownTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
-        setState(() {}); // Refresh UI to update countdown
+        setState(() {}); // Refresh UI every second for live countdown
       }
     });
   }
