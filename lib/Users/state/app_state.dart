@@ -59,14 +59,37 @@ class CampusAppState extends ChangeNotifier {
       final result = await ApiService.getNotifications(
         token: token,
         page: 1,
-        limit: 1,
+        limit: 50,
         isRead: false,
       );
 
       if (result['success'] == true) {
-        final data = result['data'];
-        // API returns unreadCount directly, or fallback to pagination.total
-        final total = data['unreadCount'] ?? data['pagination']?['total'] ?? 0;
+        final data = result['data'] ?? {};
+        final notificationsData = data['notifications'];
+        final List<dynamic> notificationsList;
+        if (notificationsData is List) {
+          notificationsList = notificationsData;
+        } else if (notificationsData is Map) {
+          notificationsList = notificationsData.values.toList();
+        } else {
+          notificationsList = [];
+        }
+
+        // Get cleared notification IDs from SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final clearedIds =
+            (prefs.getStringList('cleared_notification_ids') ?? <String>[])
+                .toSet();
+
+        // Count unread notifications that haven't been cleared
+        final visibleNotifications = notificationsList
+            .whereType<Map<String, dynamic>>()
+            .where((n) {
+              final id = (n['_id'] ?? '').toString();
+              return id.isEmpty || !clearedIds.contains(id);
+            });
+
+        final total = visibleNotifications.length;
 
         if (_unreadNotificationCount != total) {
           _unreadNotificationCount = total;
