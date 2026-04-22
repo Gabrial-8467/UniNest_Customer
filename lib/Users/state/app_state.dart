@@ -75,18 +75,22 @@ class CampusAppState extends ChangeNotifier {
           notificationsList = [];
         }
 
-        // Get cleared notification IDs from SharedPreferences
+        // Get cleared and read notification IDs from SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         final clearedIds =
             (prefs.getStringList('cleared_notification_ids') ?? <String>[])
                 .toSet();
+        final readIds =
+            (prefs.getStringList('read_notification_ids') ?? <String>[])
+                .toSet();
 
-        // Count unread notifications that haven't been cleared
+        // Count unread notifications that haven't been cleared or marked as read
         final visibleNotifications = notificationsList
             .whereType<Map<String, dynamic>>()
             .where((n) {
               final id = (n['_id'] ?? '').toString();
-              return id.isEmpty || !clearedIds.contains(id);
+              return id.isEmpty ||
+                  (!clearedIds.contains(id) && !readIds.contains(id));
             });
 
         final total = visibleNotifications.length;
@@ -102,9 +106,29 @@ class CampusAppState extends ChangeNotifier {
   }
 
   // Update notification count (called after viewing notifications)
-  void updateNotificationCount(int count) {
+  void updateNotificationCount(int count, {List<String>? readNotificationIds}) {
     _unreadNotificationCount = count;
     notifyListeners();
+
+    // Save read notification IDs to SharedPreferences
+    if (readNotificationIds != null && readNotificationIds.isNotEmpty) {
+      _saveReadNotificationIds(readNotificationIds);
+    }
+  }
+
+  // Save read notification IDs to SharedPreferences
+  Future<void> _saveReadNotificationIds(List<String> notificationIds) async {
+    if (notificationIds.isEmpty) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existingIds =
+          prefs.getStringList('read_notification_ids') ?? <String>[];
+      final mergedIds = {...existingIds, ...notificationIds}.toList();
+      await prefs.setStringList('read_notification_ids', mergedIds);
+    } catch (e) {
+      debugPrint('Error saving read notification IDs: $e');
+    }
   }
 
   final List<Map<String, dynamic>> _canteens = [];
@@ -1179,6 +1203,25 @@ class CampusAppState extends ChangeNotifier {
                 existingOrder['estimatedDelivery'] = newEstimatedDelivery;
                 hasChanges = true;
               }
+            }
+            // Update delivery OTP from backend
+            final deliveryOtp =
+                backendOrder['deliveryOtp'] ??
+                backendOrder['delivery_otp'] ??
+                backendOrder['otp'] ??
+                backendOrder['deliveryOTP'];
+            if (deliveryOtp != null) {
+              existingOrder['deliveryOtp'] = deliveryOtp;
+              hasChanges = true;
+            }
+            // Update delivery partner info from backend
+            final deliveryPartner =
+                backendOrder['deliveryPartner'] ??
+                backendOrder['delivery_partner'] ??
+                backendOrder['partner'];
+            if (deliveryPartner != null) {
+              existingOrder['deliveryPartner'] = deliveryPartner;
+              hasChanges = true;
             }
             if (hasChanges) {
               notifyListeners();

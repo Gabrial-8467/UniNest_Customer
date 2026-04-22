@@ -1,8 +1,24 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import '../utils/secure_logger.dart';
 
 class AppConfig {
+  static const String _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const String _enforceHttps = String.fromEnvironment('ENFORCE_HTTPS');
+  static const String _apiTimeoutSeconds = String.fromEnvironment(
+    'API_TIMEOUT_SECONDS',
+  );
+  static const String _enableDebugLogging = String.fromEnvironment(
+    'ENABLE_DEBUG_LOGGING',
+  );
+  static const String _enableAnalytics = String.fromEnvironment(
+    'ENABLE_ANALYTICS',
+  );
+  static const String _encryptionKey = String.fromEnvironment('ENCRYPTION_KEY');
+  static const String _jwtSecret = String.fromEnvironment('JWT_SECRET');
+  static const String _razorpayKey = String.fromEnvironment('RAZORPAY_KEY');
+
   // Environment configuration
   static bool get isDebugMode => kDebugMode;
   static bool get isReleaseMode => kReleaseMode;
@@ -10,29 +26,60 @@ class AppConfig {
   // Initialize environment variables
   static Future<void> initialize() async {
     try {
-      await dotenv.load(fileName: ".env");
+      await dotenv.load(
+        fileName: kIsWeb ? 'assets/env/app_config.txt' : '.env',
+        isOptional: true,
+        mergeWith: _dartDefineEnv,
+      );
     } catch (e) {
+      dotenv.testLoad(mergeWith: _dartDefineEnv);
       if (isDebugMode) {
-        SecureLogger.warning('Could not load .env file: $e');
+        debugPrint('WARNING: Could not load environment config: $e');
       }
       // Fallback to default values
     }
   }
 
+  static Map<String, String> get _dartDefineEnv {
+    return {
+      if (_apiBaseUrl.trim().isNotEmpty) 'API_BASE_URL': _apiBaseUrl.trim(),
+      if (_enforceHttps.trim().isNotEmpty)
+        'ENFORCE_HTTPS': _enforceHttps.trim(),
+      if (_apiTimeoutSeconds.trim().isNotEmpty)
+        'API_TIMEOUT_SECONDS': _apiTimeoutSeconds.trim(),
+      if (_enableDebugLogging.trim().isNotEmpty)
+        'ENABLE_DEBUG_LOGGING': _enableDebugLogging.trim(),
+      if (_enableAnalytics.trim().isNotEmpty)
+        'ENABLE_ANALYTICS': _enableAnalytics.trim(),
+      if (_encryptionKey.trim().isNotEmpty)
+        'ENCRYPTION_KEY': _encryptionKey.trim(),
+      if (_jwtSecret.trim().isNotEmpty) 'JWT_SECRET': _jwtSecret.trim(),
+      if (_razorpayKey.trim().isNotEmpty) 'RAZORPAY_KEY': _razorpayKey.trim(),
+    };
+  }
+
+  static String? _envValue(String key) {
+    if (!dotenv.isInitialized) {
+      return _dartDefineEnv[key];
+    }
+
+    return dotenv.env[key] ?? _dartDefineEnv[key];
+  }
+
   // API Configuration
   static String get baseUrl {
-    final envUrl = dotenv.env['API_BASE_URL']?.trim();
+    final envUrl = _envValue('API_BASE_URL')?.trim();
     if (envUrl != null && envUrl.isNotEmpty) {
       return _normalizeBaseUrl(envUrl);
     }
     throw StateError(
-      'API_BASE_URL is missing in .env. Expected Render backend URL.',
+      'API_BASE_URL is missing in environment config. Expected Render backend URL.',
     );
   }
 
   // Security Settings
   static bool get enforceHttps {
-    final enforce = dotenv.env['ENFORCE_HTTPS'];
+    final enforce = _envValue('ENFORCE_HTTPS');
     if (enforce != null) {
       return enforce.toLowerCase() == 'true';
     }
@@ -40,13 +87,13 @@ class AppConfig {
   }
 
   static int get connectionTimeoutSeconds {
-    final timeout = dotenv.env['API_TIMEOUT_SECONDS'];
+    final timeout = _envValue('API_TIMEOUT_SECONDS');
     return timeout != null ? int.tryParse(timeout) ?? 30 : 30;
   }
 
   // Feature Flags
   static bool get enableDebugLogging {
-    final enable = dotenv.env['ENABLE_DEBUG_LOGGING'];
+    final enable = _envValue('ENABLE_DEBUG_LOGGING');
     if (enable != null) {
       return enable.toLowerCase() == 'true';
     }
@@ -54,7 +101,7 @@ class AppConfig {
   }
 
   static bool get enableAnalytics {
-    final enable = dotenv.env['ENABLE_ANALYTICS'];
+    final enable = _envValue('ENABLE_ANALYTICS');
     if (enable != null) {
       return enable.toLowerCase() == 'true';
     }
@@ -63,16 +110,16 @@ class AppConfig {
 
   // Security Keys
   static String get encryptionKey {
-    return dotenv.env['ENCRYPTION_KEY'] ?? '';
+    return _envValue('ENCRYPTION_KEY') ?? '';
   }
 
   static String get jwtSecret {
-    return dotenv.env['JWT_SECRET'] ?? '';
+    return _envValue('JWT_SECRET') ?? '';
   }
 
   // Razorpay Configuration
   static String get razorpayKey {
-    return dotenv.env['RAZORPAY_KEY'] ?? '';
+    return _envValue('RAZORPAY_KEY') ?? '';
   }
 
   // Network timeout settings

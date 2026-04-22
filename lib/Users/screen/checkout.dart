@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../../config/app_config.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/razorpay_checkout.dart';
 import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
 import 'order_tracking.dart';

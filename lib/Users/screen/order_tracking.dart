@@ -731,11 +731,31 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   Widget _buildDeliveryOtpCard(Map<String, dynamic> order) {
-    // Extract OTP from order data
-    final deliveryOtp = order['deliveryOtp'] as Map<String, dynamic>?;
+    // Extract OTP from order data - check multiple possible field names
+    final deliveryOtp =
+        (order['deliveryOtp'] ??
+                order['delivery_otp'] ??
+                order['otp'] ??
+                order['deliveryOTP'])
+            as Map<String, dynamic>?;
+
+    // Try multiple possible field names for the OTP code
     final otpCode =
-        deliveryOtp?['code'] as String?; // Raw OTP code from backend
-    final otpHash = deliveryOtp?['hash'] as String?;
+        (deliveryOtp?['code'] ??
+                deliveryOtp?['otp'] ??
+                deliveryOtp?['value'] ??
+                order['deliveryOtpCode'] ??
+                order['otpCode'] ??
+                order['deliveryCode'])
+            ?.toString();
+
+    // Try multiple possible field names for the OTP hash
+    final otpHash =
+        (deliveryOtp?['hash'] ??
+                deliveryOtp?['otpHash'] ??
+                order['deliveryOtpHash'] ??
+                order['otpHash'])
+            ?.toString();
 
     // Show OTP if available, otherwise show placeholder
     final otpValue = otpCode ?? (otpHash != null ? '****' : null);

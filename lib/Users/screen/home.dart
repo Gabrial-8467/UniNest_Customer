@@ -768,9 +768,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final productId = (product['id'] ?? product['_id'] ?? '').toString();
     final name = (product['name'] ?? 'Product').toString();
     final price = (product['price'] as num?)?.toDouble() ?? 0;
-    final imageUrl = product['imageUrl'] is Map
-        ? product['imageUrl']['url'] ?? ''
-        : (product['imageUrl'] ?? product['image'] ?? '').toString();
+    final imageUrl =
+        (product['imageUrl'] is Map
+                ? (product['imageUrl']['url'] ?? '').toString()
+                : (product['imageUrl'] ?? product['image'] ?? ''))
+            .toString();
     final canteenName =
         (product['canteenName'] ?? product['vendorName'] ?? 'Unknown')
             .toString();

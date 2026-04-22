@@ -1,0 +1,17 @@
+# Environment Configuration
+# Copy this file to .env and update with your actual values
+
+# API Configuration
+API_BASE_URL=https://uninest-backend.onrender.com/api/customer/
+
+# Security Settings
+ENFORCE_HTTPS=true
+API_TIMEOUT_SECONDS=30
+
+# Feature Flags
+ENABLE_DEBUG_LOGGING=false
+ENABLE_ANALYTICS=true
+
+# Security Keys (generate your own)
+ENCRYPTION_KEY=your_32_character_encryption_key_here
+JWT_SECRET=your_jwt_secret_key_here

@@ -69,6 +69,7 @@ flutter:
   # Assets for environment variables and app logo
   assets:
     - .env
+    - assets/env/app_config.txt
     - assets/uninest.jpeg
 
   # To add assets to your application, add an assets section, like this:

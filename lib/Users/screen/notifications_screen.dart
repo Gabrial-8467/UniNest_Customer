@@ -105,8 +105,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           isLoadingMore = false;
         });
         if (mounted) {
+          final readIds = notifications
+              .where((n) => n['isRead'] == true)
+              .map((n) => (n['_id'] ?? '').toString())
+              .where((id) => id.isNotEmpty)
+              .toList();
           AppStateScope.of(context).updateNotificationCount(
             notifications.where((n) => !(n['isRead'] ?? false)).length,
+            readNotificationIds: readIds,
           );
         }
       } else {
@@ -142,7 +148,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (result['success'] == true) {
         await _loadNotifications(refresh: true);
         if (mounted) {
-          AppStateScope.of(context).updateNotificationCount(0);
+          final allIds = notifications
+              .map((n) => (n['_id'] ?? '').toString())
+              .where((id) => id.isNotEmpty)
+              .toList();
+          AppStateScope.of(
+            context,
+          ).updateNotificationCount(0, readNotificationIds: allIds);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('All notifications marked as read'),
@@ -196,7 +208,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       totalPages = 1;
       hasMoreData = false;
     });
-    AppStateScope.of(context).updateNotificationCount(0);
+    final allIds = notificationIds.toList();
+    AppStateScope.of(
+      context,
+    ).updateNotificationCount(0, readNotificationIds: allIds);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('All notifications cleared'),
@@ -258,8 +273,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       // Update notification count in AppState
       if (mounted) {
         final appState = AppStateScope.of(context);
+        final readIds = notifications
+            .where((n) => n['isRead'] == true)
+            .map((n) => (n['_id'] ?? '').toString())
+            .where((id) => id.isNotEmpty)
+            .toList();
         appState.updateNotificationCount(
           notifications.where((n) => !(n['isRead'] ?? false)).length,
+          readNotificationIds: readIds,
         );
       }
     } catch (e) {
