@@ -134,6 +134,9 @@ class OrderHistoryScreen extends StatelessWidget {
       case 'Ready for Pickup':
         statusColor = Colors.orange;
         break;
+      case 'Cancelled':
+        statusColor = Colors.red;
+        break;
       default:
         statusColor = Colors.grey;
     }
@@ -246,6 +249,31 @@ class OrderHistoryScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ),
+          ] else if (status.toLowerCase() == 'cancelled') ...[
+            SizedBox(
+              width: double.infinity,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.cancel, size: 16, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text(
+                      'Order Cancelled',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

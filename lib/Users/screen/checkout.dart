@@ -518,7 +518,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildCouponField(CampusAppState appState) {
-    final hasAppliedCoupon = appState.hasActiveCoupon;
+    final hasAppliedCoupon = appState.hasActiveCoupon || _couponCode != null;
 
     return _sectionCard(
       title: 'Coupon Code',
@@ -564,6 +564,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       _couponCode = null;
                       _couponController.clear();
                     });
+                    appState.clearBackendPricing();
                     _fetchBackendPricing();
                   },
                   icon: const Icon(Icons.close, size: 18),
@@ -620,7 +621,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const Icon(Icons.check_circle, color: Colors.green, size: 16),
                   const SizedBox(width: 6),
                   Text(
-                    'Coupon ${appState.appliedCoupon?['code'] ?? ''} applied!',
+                    'Coupon ${appState.appliedCoupon?['code'] ?? _couponCode ?? ''} applied!',
                     style: const TextStyle(
                       color: Colors.green,
                       fontWeight: FontWeight.w600,

@@ -89,8 +89,10 @@ class CampusAppState extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .where((n) {
               final id = (n['_id'] ?? '').toString();
-              return id.isEmpty ||
-                  (!clearedIds.contains(id) && !readIds.contains(id));
+              // Only count if ID is not empty AND not cleared AND not read
+              return id.isNotEmpty &&
+                  !clearedIds.contains(id) &&
+                  !readIds.contains(id);
             });
 
         final total = visibleNotifications.length;
