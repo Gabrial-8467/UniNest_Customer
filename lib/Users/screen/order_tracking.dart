@@ -643,7 +643,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             ),
             const SizedBox(height: 12),
           ],
-          if (isDelivered) ...[
+          if (isDelivered && order['isReviewed'] != true) ...[
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -660,6 +660,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+          ] else if (isDelivered && order['isReviewed'] == true) ...[
+            _buildRatingDisplay(order),
             const SizedBox(height: 12),
           ],
           SizedBox(
@@ -894,15 +897,39 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     );
   }
 
-  void _showRateOrderDialog(Map<String, dynamic> order) {
-    showRatingDialog(
-      context,
-      widget.orderId,
-      onSubmitted: () {
-        // Refresh order status after rating submitted
-        AppStateScope.of(context).updateOrderStatus(widget.orderId);
-      },
-    );
+  void _showRateOrderDialog(Map<String, dynamic> order) async {
+    final appState = AppStateScope.of(context);
+
+    // Refresh orders to get the backend MongoDB ID (_id)
+    await appState.refreshOrders();
+
+    if (!mounted) return;
+
+    // Get the refreshed order data
+    Map<String, dynamic>? refreshedOrder;
+    for (final o in appState.orderHistory) {
+      if (o['orderId'] == order['orderId']) {
+        refreshedOrder = o;
+        break;
+      }
+    }
+
+    final backendOrderId = refreshedOrder?['backendOrderId'] as String?;
+    final orderIdToUse = backendOrderId?.isNotEmpty == true
+        ? backendOrderId!
+        : refreshedOrder?['orderId'] ?? order['orderId'];
+
+    if (mounted) {
+      showRatingDialog(
+        context,
+        orderIdToUse,
+        displayOrderId: order['orderId'] as String?,
+        onSubmitted: () {
+          // Refresh orders to get updated review status from backend
+          AppStateScope.of(context).refreshOrders();
+        },
+      );
+    }
   }
 
   String _formatDeliveryAddress(dynamic delivery) {
@@ -933,6 +960,95 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     }
 
     return parts.isEmpty ? 'Campus Address' : parts.join(', ');
+  }
+
+  Widget _buildRatingDisplay(Map<String, dynamic> order) {
+    final rating = order['rating'] as Map<String, dynamic>?;
+    final review = order['review'] as Map<String, dynamic>?;
+    final comment = review?['comment']?.toString();
+    final foodRating =
+        rating?['food'] as int? ?? review?['rating']?['food'] as int? ?? 0;
+    final deliveryRating =
+        rating?['delivery'] as int? ??
+        review?['rating']?['delivery'] as int? ??
+        0;
+    final experienceRating =
+        rating?['experience'] as int? ??
+        review?['rating']?['experience'] as int? ??
+        0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Order Rated',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (foodRating > 0) _buildRatingRow('Food Quality', foodRating),
+          if (deliveryRating > 0) _buildRatingRow('Delivery', deliveryRating),
+          if (experienceRating > 0)
+            _buildRatingRow('Experience', experienceRating),
+          if (comment != null && comment.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Text(
+              'Your Review:',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              comment,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF2D3436)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatingRow(String label, int rating) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Text(label, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+          const SizedBox(width: 8),
+          Row(
+            children: List.generate(5, (index) {
+              return Icon(
+                index < rating ? Icons.star : Icons.star_border,
+                color: index < rating ? Colors.amber : Colors.grey[400],
+                size: 16,
+              );
+            }),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showOrderHelp() {

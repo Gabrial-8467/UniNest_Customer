@@ -226,18 +226,52 @@ class OrderHistoryScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          if (status.toLowerCase() == 'delivered' ||
-              status.toLowerCase() == 'completed' ||
-              status.toLowerCase() == 'picked up') ...[
+          if ((status.toLowerCase() == 'delivered' ||
+                  status.toLowerCase() == 'completed' ||
+                  status.toLowerCase() == 'picked up') &&
+              order['isReviewed'] != true) ...[
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  showRatingDialog(
-                    context,
-                    order['orderId'],
-                    onSubmitted: () {},
-                  );
+                onPressed: () async {
+                  final scaffoldContext = context;
+                  // Refresh orders to get the backend MongoDB ID (_id)
+                  await AppStateScope.of(scaffoldContext).refreshOrders();
+                  if (!scaffoldContext.mounted) return;
+
+                  // Get the refreshed order data
+                  Map<String, dynamic>? refreshedOrder;
+                  for (final o in AppStateScope.of(
+                    scaffoldContext,
+                  ).orderHistory) {
+                    if (o['orderId'] == order['orderId']) {
+                      refreshedOrder = o;
+                      break;
+                    }
+                  }
+
+                  final backendOrderId =
+                      refreshedOrder?['backendOrderId'] as String?;
+                  debugPrint('🔍 backendOrderId: $backendOrderId');
+                  debugPrint('🔍 orderId: ${refreshedOrder?['orderId']}');
+
+                  final orderIdToUse = backendOrderId?.isNotEmpty == true
+                      ? backendOrderId!
+                      : refreshedOrder?['orderId'] ?? order['orderId'];
+
+                  debugPrint('🔍 Using orderIdToUse: $orderIdToUse');
+
+                  if (context.mounted) {
+                    showRatingDialog(
+                      context,
+                      orderIdToUse,
+                      displayOrderId: order['orderId'] as String?,
+                      onSubmitted: () {
+                        // Refresh orders to get updated review status
+                        AppStateScope.of(context).refreshOrders();
+                      },
+                    );
+                  }
                 },
                 icon: const Icon(Icons.star, size: 16),
                 label: const Text('Rate Order'),
@@ -249,6 +283,34 @@ class OrderHistoryScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ),
+          ] else if ((status.toLowerCase() == 'delivered' ||
+                  status.toLowerCase() == 'completed' ||
+                  status.toLowerCase() == 'picked up') &&
+              order['isReviewed'] == true) ...[
+            SizedBox(
+              width: double.infinity,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, size: 16, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text(
+                      'Order Rated',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

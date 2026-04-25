@@ -72,23 +72,23 @@ class ProductCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildImageSection(),
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 3),
-                      _buildCanteenInfo(),
-                      const SizedBox(height: 5),
-                      _buildPriceAndRatingRow(),
-                      const SizedBox(height: 6),
-                      _buildActions(),
-                    ],
-                  ),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 3),
+                    _buildCanteenInfo(),
+                    const SizedBox(height: 5),
+                    _buildPriceAndRatingRow(),
+                    const SizedBox(height: 6),
+                    _buildActions(),
+                  ],
                 ),
               ),
             ],

@@ -290,8 +290,11 @@ class CampusAppState extends ChangeNotifier {
                 'canteenName': vendorData is Map<String, dynamic>
                     ? (vendorData['businessName'] ?? 'Main Canteen')
                     : 'Main Canteen',
-                'rating': (product['rating'] as num?)?.toDouble() ?? 0.0,
-                'reviewCount': (product['reviewCount'] as num?)?.toInt() ?? 0,
+                'rating': _extractRatingValue(product['rating']),
+                'reviewCount': _extractReviewCount(
+                  product['rating'],
+                  product['reviewCount'],
+                ),
                 'isFavorite': false,
                 'vendor': vendorData,
               };
@@ -845,6 +848,11 @@ class CampusAppState extends ChangeNotifier {
     List<Map<String, dynamic>>? cartSnapshot,
     Map<String, dynamic>? deliveryAddress,
   }) {
+    debugPrint('🔍 Normalizing order data: ${orderData.keys.toList()}');
+    debugPrint(
+      '🔍 _id: ${orderData['_id']}, orderNumber: ${orderData['orderNumber']}',
+    );
+
     final placedAt = _parseDateTime(orderData['createdAt']) ?? DateTime.now();
     final estimatedDelivery =
         _parseDateTime(orderData['estimatedDeliveryTime']) ??
@@ -930,8 +938,16 @@ class CampusAppState extends ChangeNotifier {
       'delivery': resolvedDelivery,
       'estimatedDelivery': estimatedDelivery,
       'trackingSteps': trackingSteps,
-      'deliveryOtp':
-          orderData['deliveryOtp'], // Preserve delivery OTP for customer
+      'deliveryOtp': orderData['deliveryOtp'],
+      'isReviewed':
+          orderData['isReviewed'] == true ||
+          (orderData['review'] is Map && orderData['review'].isNotEmpty),
+      'rating': orderData['rating'] is Map
+          ? Map<String, dynamic>.from(orderData['rating'] as Map)
+          : null,
+      'review': orderData['review'] is Map
+          ? Map<String, dynamic>.from(orderData['review'] as Map)
+          : null,
     };
   }
 
@@ -1604,6 +1620,34 @@ class CampusAppState extends ChangeNotifier {
     } catch (_) {
       // Ignore persistence errors and keep in-memory behavior.
     }
+  }
+
+  // Helper to extract rating value from backend response (handles both num and Map)
+  double _extractRatingValue(dynamic rating) {
+    if (rating is num) {
+      return rating.toDouble();
+    }
+    if (rating is Map<String, dynamic>) {
+      final average = rating['average'];
+      if (average is num) {
+        return average.toDouble();
+      }
+    }
+    return 0.0;
+  }
+
+  // Helper to extract review count from backend response (handles both num and Map)
+  int _extractReviewCount(dynamic ratingMap, dynamic reviewCount) {
+    if (reviewCount is num) {
+      return reviewCount.toInt();
+    }
+    if (ratingMap is Map<String, dynamic>) {
+      final count = ratingMap['count'];
+      if (count is num) {
+        return count.toInt();
+      }
+    }
+    return 0;
   }
 }
 

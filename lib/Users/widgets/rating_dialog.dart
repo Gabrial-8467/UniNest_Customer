@@ -5,11 +5,13 @@ import '../../../utils/app_theme.dart';
 
 class RatingDialog extends StatefulWidget {
   final String orderId;
+  final String? displayOrderId;
   final VoidCallback? onSubmitted;
 
   const RatingDialog({
     super.key,
     required this.orderId,
+    this.displayOrderId,
     this.onSubmitted,
   });
 
@@ -41,6 +43,26 @@ class _RatingDialogState extends State<RatingDialog> {
       return;
     }
 
+    // Validate ratings are within 1-5 range
+    final food = _foodRating == 0 ? _overallRating : _foodRating;
+    final delivery = _deliveryRating == 0 ? _overallRating : _deliveryRating;
+    final overall = _overallRating;
+
+    if (food < 1 ||
+        food > 5 ||
+        delivery < 1 ||
+        delivery > 5 ||
+        overall < 1 ||
+        overall > 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All ratings must be between 1 and 5'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -60,9 +82,9 @@ class _RatingDialogState extends State<RatingDialog> {
       final result = await ApiService.rateOrder(
         token: token,
         orderId: widget.orderId,
-        food: _foodRating == 0 ? _overallRating : _foodRating,
-        overall: _overallRating,
-        delivery: _deliveryRating == 0 ? _overallRating : _deliveryRating,
+        food: food,
+        overall: overall,
+        delivery: delivery,
         review: _reviewController.text.trim().isEmpty
             ? null
             : _reviewController.text.trim(),
@@ -71,8 +93,11 @@ class _RatingDialogState extends State<RatingDialog> {
       if (!mounted) return;
 
       if (result['success'] == true) {
+        // Close dialog first
+        Navigator.of(context).pop();
+        // Then run callback to refresh orders
         widget.onSubmitted?.call();
-        Navigator.pop(context);
+        // Show success message on parent screen
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Thank you for your rating!'),
@@ -91,12 +116,14 @@ class _RatingDialogState extends State<RatingDialog> {
       debugPrint('Error submitting rating: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to submit rating'),
+          SnackBar(
+            content: Text('Failed to submit rating: $e'),
             backgroundColor: AppColors.error,
           ),
         );
       }
+      // Don't close dialog on error - let user retry
+      return;
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -126,11 +153,8 @@ class _RatingDialogState extends State<RatingDialog> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Order #${widget.orderId}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
+                'Order #${widget.displayOrderId ?? widget.orderId}',
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 24),
               _buildRatingSection(
@@ -163,7 +187,7 @@ class _RatingDialogState extends State<RatingDialog> {
               TextField(
                 controller: _reviewController,
                 maxLines: 3,
-                maxLength: 200,
+                maxLength: 500,
                 decoration: InputDecoration(
                   hintText: 'Share your experience...',
                   border: OutlineInputBorder(
@@ -185,7 +209,9 @@ class _RatingDialogState extends State<RatingDialog> {
                 children: [
                   Expanded(
                     child: TextButton(
-                      onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
                   ),
@@ -263,12 +289,18 @@ class _RatingDialogState extends State<RatingDialog> {
   }
 }
 
-void showRatingDialog(BuildContext context, String orderId, {VoidCallback? onSubmitted}) {
+void showRatingDialog(
+  BuildContext context,
+  String orderId, {
+  String? displayOrderId,
+  VoidCallback? onSubmitted,
+}) {
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (context) => RatingDialog(
       orderId: orderId,
+      displayOrderId: displayOrderId,
       onSubmitted: onSubmitted,
     ),
   );

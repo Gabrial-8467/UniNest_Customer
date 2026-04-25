@@ -809,7 +809,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Only show rating if it's greater than 0
-    final rawRating = (product['rating'] as num?)?.toDouble();
+    // Handle both num and Map<String, dynamic> formats
+    final dynamic rawRatingData = product['rating'];
+    double? rawRating;
+    if (rawRatingData is num) {
+      rawRating = rawRatingData.toDouble();
+    } else if (rawRatingData is Map<String, dynamic>) {
+      final avg = rawRatingData['average'];
+      if (avg is num) {
+        rawRating = avg.toDouble();
+      }
+    }
     final rating = (rawRating != null && rawRating > 0) ? rawRating : null;
     final cuisine = (product['category'] ?? '').toString();
     final deliveryTime = product['deliveryTime']?.toString();
