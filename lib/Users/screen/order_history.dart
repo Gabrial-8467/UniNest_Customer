@@ -233,45 +233,24 @@ class OrderHistoryScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () async {
-                  final scaffoldContext = context;
-                  // Refresh orders to get the backend MongoDB ID (_id)
-                  await AppStateScope.of(scaffoldContext).refreshOrders();
-                  if (!scaffoldContext.mounted) return;
-
-                  // Get the refreshed order data
-                  Map<String, dynamic>? refreshedOrder;
-                  for (final o in AppStateScope.of(
-                    scaffoldContext,
-                  ).orderHistory) {
-                    if (o['orderId'] == order['orderId']) {
-                      refreshedOrder = o;
-                      break;
-                    }
-                  }
-
-                  final backendOrderId =
-                      refreshedOrder?['backendOrderId'] as String?;
-                  debugPrint('🔍 backendOrderId: $backendOrderId');
-                  debugPrint('🔍 orderId: ${refreshedOrder?['orderId']}');
-
-                  final orderIdToUse = backendOrderId?.isNotEmpty == true
-                      ? backendOrderId!
-                      : refreshedOrder?['orderId'] ?? order['orderId'];
+                onPressed: () {
+                  // Use order ID directly from the order data we already have
+                  // backendOrderId is stored when orders are normalized in app_state
+                  final orderIdToUse = order['backendOrderId'] as String?;
+                  final displayId = order['orderId'] as String?;
 
                   debugPrint('🔍 Using orderIdToUse: $orderIdToUse');
+                  debugPrint('🔍 Display orderId: $displayId');
 
-                  if (context.mounted) {
-                    showRatingDialog(
-                      context,
-                      orderIdToUse,
-                      displayOrderId: order['orderId'] as String?,
-                      onSubmitted: () {
-                        // Refresh orders to get updated review status
-                        AppStateScope.of(context).refreshOrders();
-                      },
-                    );
-                  }
+                  showRatingDialog(
+                    context,
+                    orderIdToUse ?? displayId ?? '',
+                    displayOrderId: displayId,
+                    onSubmitted: () {
+                      // Refresh orders after rating to update UI
+                      AppStateScope.of(context).refreshOrders();
+                    },
+                  );
                 },
                 icon: const Icon(Icons.star, size: 16),
                 label: const Text('Rate Order'),

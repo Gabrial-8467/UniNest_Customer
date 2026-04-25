@@ -897,39 +897,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     );
   }
 
-  void _showRateOrderDialog(Map<String, dynamic> order) async {
-    final appState = AppStateScope.of(context);
+  void _showRateOrderDialog(Map<String, dynamic> order) {
+    // Use order ID directly from the order data we already have
+    final orderIdToUse = order['backendOrderId'] as String?;
+    final displayId = order['orderId'] as String?;
 
-    // Refresh orders to get the backend MongoDB ID (_id)
-    await appState.refreshOrders();
-
-    if (!mounted) return;
-
-    // Get the refreshed order data
-    Map<String, dynamic>? refreshedOrder;
-    for (final o in appState.orderHistory) {
-      if (o['orderId'] == order['orderId']) {
-        refreshedOrder = o;
-        break;
-      }
-    }
-
-    final backendOrderId = refreshedOrder?['backendOrderId'] as String?;
-    final orderIdToUse = backendOrderId?.isNotEmpty == true
-        ? backendOrderId!
-        : refreshedOrder?['orderId'] ?? order['orderId'];
-
-    if (mounted) {
-      showRatingDialog(
-        context,
-        orderIdToUse,
-        displayOrderId: order['orderId'] as String?,
-        onSubmitted: () {
-          // Refresh orders to get updated review status from backend
-          AppStateScope.of(context).refreshOrders();
-        },
-      );
-    }
+    showRatingDialog(
+      context,
+      orderIdToUse ?? displayId ?? '',
+      displayOrderId: displayId,
+      onSubmitted: () {
+        // Refresh orders after rating to update UI
+        AppStateScope.of(context).refreshOrders();
+      },
+    );
   }
 
   String _formatDeliveryAddress(dynamic delivery) {
