@@ -824,4 +824,267 @@ class ApiService {
   static String getCurrentBaseUrl() {
     return _baseUrl;
   }
+
+  // ==================== MULTIPART FORM DATA HELPER ====================
+
+  static Future<Map<String, dynamic>> _makeMultipartRequest({
+    required String method,
+    required String endpoint,
+    required String token,
+    Map<String, String>? fields,
+    List<http.MultipartFile>? files,
+  }) async {
+    try {
+      final uri = _buildUri(endpoint, usePublicBaseUrl: false);
+      debugPrint('🔍 Multipart Request: $method $uri');
+
+      http.MultipartRequest request;
+      switch (method.toUpperCase()) {
+        case 'POST':
+          request = http.MultipartRequest('POST', uri);
+          break;
+        case 'PUT':
+          request = http.MultipartRequest('PUT', uri);
+          break;
+        case 'PATCH':
+          request = http.MultipartRequest('PATCH', uri);
+          break;
+        default:
+          throw Exception('Unsupported multipart method: $method');
+      }
+
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+      if (files != null) {
+        request.files.addAll(files);
+      }
+
+      final streamedResponse = await request.send().timeout(
+        AppConfig.connectionTimeout,
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+
+      debugPrint('📡 Response Status: ${response.statusCode}');
+      debugPrint('📄 Response Body: ${response.body}');
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'data': responseData['data'] ?? responseData,
+          'message': responseData['message'] ?? 'Success',
+        };
+      } else {
+        return {
+          'success': false,
+          'error':
+              responseData['error'] ??
+              responseData['message'] ??
+              'Request failed',
+          'errorCode': responseData['errorCode'],
+          'statusCode': response.statusCode,
+        };
+      }
+    } catch (e) {
+      debugPrint('💥 Multipart API Error: $e');
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  // ==================== VENDOR PRODUCTS ENDPOINTS ====================
+
+  static Future<int> _getFeaturedProductsCount(String token) async {
+    final result = await getVendorProducts(
+      token: token,
+      isFeatured: true,
+      limit: 1,
+    );
+    if (result['success'] == true) {
+      final data = result['data'] as Map<String, dynamic>?;
+      final pagination = data?['pagination'] as Map<String, dynamic>?;
+      return (pagination?['total'] as num?)?.toInt() ?? 0;
+    }
+    return 0;
+  }
+
+  static Future<Map<String, dynamic>> getVendorProducts({
+    required String token,
+    bool? isFeatured,
+    int? page,
+    int? limit,
+    String? category,
+    String? status,
+    String? availability,
+    String? search,
+    String? sortBy,
+    String? sortOrder,
+  }) async {
+    final queryParams = <String, String>{};
+    if (isFeatured != null) queryParams['isFeatured'] = isFeatured.toString();
+    if (page != null) queryParams['page'] = page.toString();
+    if (limit != null) queryParams['limit'] = limit.toString();
+    if (category != null) queryParams['category'] = category;
+    if (status != null) queryParams['status'] = status;
+    if (availability != null) queryParams['availability'] = availability;
+    if (search != null) queryParams['search'] = search;
+    if (sortBy != null) queryParams['sortBy'] = sortBy;
+    if (sortOrder != null) queryParams['sortOrder'] = sortOrder;
+
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: ApiEndpoints.vendorProducts,
+      token: token,
+      queryParams: queryParams,
+    );
+  }
+
+  static Future<Map<String, dynamic>> createVendorProduct({
+    required String token,
+    required String name,
+    required String description,
+    required double price,
+    required String category,
+    required int stock,
+    String? availability,
+    bool? isFeatured,
+    List<http.MultipartFile>? images,
+    String? imagesJson,
+  }) async {
+    // Check featured products limit before creating
+    if (isFeatured == true) {
+      final currentCount = await _getFeaturedProductsCount(token);
+      if (currentCount >= ApiEndpoints.maxFeaturedProducts) {
+        return {
+          'success': false,
+          'message':
+              'Maximum ${ApiEndpoints.maxFeaturedProducts} featured products allowed per vendor',
+          'errorCode': 'FEATURED_LIMIT_EXCEEDED',
+        };
+      }
+    }
+
+    final fields = <String, String>{
+      'name': name,
+      'description': description,
+      'price': price.toString(),
+      'category': category,
+      'stock': stock.toString(),
+    };
+
+    if (availability != null) fields['availability'] = availability;
+    if (isFeatured != null) fields['isFeatured'] = isFeatured.toString();
+    if (imagesJson != null) fields['images'] = imagesJson;
+
+    return await _makeMultipartRequest(
+      method: 'POST',
+      endpoint: ApiEndpoints.vendorProducts,
+      token: token,
+      fields: fields,
+      files: images,
+    );
+  }
+
+  static Future<Map<String, dynamic>> updateVendorProduct({
+    required String token,
+    required String productId,
+    String? name,
+    String? description,
+    double? price,
+    int? stock,
+    String? availability,
+    String? category,
+    bool? isFeatured,
+    List<http.MultipartFile>? images,
+    String? imagesJson,
+  }) async {
+    // Check featured products limit before updating
+    if (isFeatured == true) {
+      final currentCount = await _getFeaturedProductsCount(token);
+      if (currentCount >= ApiEndpoints.maxFeaturedProducts) {
+        return {
+          'success': false,
+          'message':
+              'Maximum ${ApiEndpoints.maxFeaturedProducts} featured products allowed per vendor',
+          'errorCode': 'FEATURED_LIMIT_EXCEEDED',
+        };
+      }
+    }
+
+    final fields = <String, String>{};
+    if (name != null) fields['name'] = name;
+    if (description != null) fields['description'] = description;
+    if (price != null) fields['price'] = price.toString();
+    if (stock != null) fields['stock'] = stock.toString();
+    if (availability != null) fields['availability'] = availability;
+    if (category != null) fields['category'] = category;
+    if (isFeatured != null) fields['isFeatured'] = isFeatured.toString();
+    if (imagesJson != null) fields['images'] = imagesJson;
+
+    return await _makeMultipartRequest(
+      method: 'PUT',
+      endpoint: ApiEndpoints.vendorProductById(productId),
+      token: token,
+      fields: fields.isNotEmpty ? fields : null,
+      files: images,
+    );
+  }
+
+  static Future<Map<String, dynamic>> patchVendorProduct({
+    required String token,
+    required String productId,
+    String? name,
+    String? description,
+    double? price,
+    int? stock,
+    String? availability,
+    String? category,
+    bool? isFeatured,
+    List<http.MultipartFile>? images,
+    String? imagesJson,
+  }) async {
+    final fields = <String, String>{};
+    if (name != null) fields['name'] = name;
+    if (description != null) fields['description'] = description;
+    if (price != null) fields['price'] = price.toString();
+    if (stock != null) fields['stock'] = stock.toString();
+    if (availability != null) fields['availability'] = availability;
+    if (category != null) fields['category'] = category;
+    if (isFeatured != null) fields['isFeatured'] = isFeatured.toString();
+    if (imagesJson != null) fields['images'] = imagesJson;
+
+    return await _makeMultipartRequest(
+      method: 'PATCH',
+      endpoint: ApiEndpoints.vendorProductById(productId),
+      token: token,
+      fields: fields.isNotEmpty ? fields : null,
+      files: images,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getVendorProductById({
+    required String token,
+    required String productId,
+  }) async {
+    return await _makeRequest(
+      method: 'GET',
+      endpoint: ApiEndpoints.vendorProductById(productId),
+      token: token,
+    );
+  }
+
+  static Future<Map<String, dynamic>> deleteVendorProduct({
+    required String token,
+    required String productId,
+  }) async {
+    return await _makeRequest(
+      method: 'DELETE',
+      endpoint: ApiEndpoints.vendorProductById(productId),
+      token: token,
+    );
+  }
 }

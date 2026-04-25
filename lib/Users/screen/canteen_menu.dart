@@ -19,6 +19,9 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
   String selectedCategory = 'All';
   String searchQuery = '';
 
+  // Cached future for featured products to prevent rebuilds
+  late Future<Map<String, dynamic>> _featuredProductsFuture;
+
   final List<String> categories = const [
     'All',
     'Burgers',
@@ -67,6 +70,13 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
           return true;
       }
     }).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize cached future for featured products
+    _featuredProductsFuture = _fetchFeaturedProducts();
   }
 
   @override
@@ -324,7 +334,7 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
 
   Widget _buildFeaturedProductsSection(CampusAppState appState) {
     return FutureBuilder<Map<String, dynamic>>(
-      future: _fetchFeaturedProducts(),
+      future: _featuredProductsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox.shrink();
@@ -340,9 +350,15 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
         }
 
         final data = result['data'];
-        final List<dynamic> featuredProducts = data is Map
+        final List<dynamic> allProducts = data is Map
             ? (data['products'] ?? [])
             : (data ?? []);
+
+        // Filter only featured products
+        final List<dynamic> featuredProducts = allProducts.where((p) {
+          if (p is! Map) return false;
+          return p['isFeatured'] == true || p['featured'] == true;
+        }).toList();
 
         if (featuredProducts.isEmpty) {
           return const SizedBox.shrink();
@@ -414,9 +430,19 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
     final productId = (product['id'] ?? product['_id'] ?? '').toString();
     final name = (product['name'] ?? 'Product').toString();
     final price = (product['price'] as num?)?.toDouble() ?? 0;
-    final imageUrl = product['imageUrl'] is Map
-        ? product['imageUrl']['url'] ?? ''
-        : (product['imageUrl'] ?? product['image'] ?? '').toString();
+    final images = product['images'];
+    String imageUrl = '';
+    if (images is List && images.isNotEmpty) {
+      final firstImage = images[0];
+      if (firstImage is Map) {
+        imageUrl = (firstImage['url'] ?? '').toString();
+      } else {
+        imageUrl = firstImage.toString();
+      }
+    } else {
+      imageUrl = (product['imageUrl'] ?? product['image'] ?? '').toString();
+    }
+    final isFeatured = product['isFeatured'] == true;
 
     return Container(
       width: 140,
@@ -438,27 +464,61 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-                child: imageUrl.isNotEmpty
-                    ? Image.network(
-                        imageUrl,
-                        height: 90,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          height: 90,
-                          color: Colors.grey[200],
-                          child: const Icon(Icons.image_not_supported),
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                    child: imageUrl.isNotEmpty
+                        ? Image.network(
+                            imageUrl,
+                            height: 90,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              height: 90,
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.image_not_supported),
+                            ),
+                          )
+                        : Container(
+                            height: 90,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.image_not_supported),
+                          ),
+                  ),
+                  if (isFeatured)
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
                         ),
-                      )
-                    : Container(
-                        height: 90,
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.image_not_supported),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF6B6B),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.star, color: Colors.white, size: 10),
+                            SizedBox(width: 2),
+                            Text(
+                              'Featured',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                    ),
+                ],
               ),
               Padding(
                 padding: const EdgeInsets.all(8),

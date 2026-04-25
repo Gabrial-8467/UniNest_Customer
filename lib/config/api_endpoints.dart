@@ -4,6 +4,7 @@ class ApiEndpoints {
   // API Base Paths
   static const String apiPrefix = '/api/customer';
   static const String publicApiPrefix = '/api/public';
+  static const String vendorApiPrefix = '/api/vendor';
 
   // Authentication
   static const String register = '$apiPrefix/auth/register';
@@ -28,6 +29,10 @@ class ApiEndpoints {
   static const String products = '/api/products';
   // Featured products use products endpoint with featured=true query param
   static const String categories = '/api/categories';
+
+  // Vendor Products
+  static const String vendorProducts = '$vendorApiPrefix/products';
+  static const int maxFeaturedProducts = 3; // Vendor featured products limit
   static const String search = '/api/search';
 
   // Orders
@@ -40,6 +45,10 @@ class ApiEndpoints {
   static String cancelOrder(String orderId) => '$orders/$orderId/cancel';
   static String trackOrder(String orderId) => '$orders/$orderId/track';
   static String reviewOrder(String orderId) => '$orders/$orderId/review';
+
+  // Vendor Products
+  static String vendorProductById(String productId) =>
+      '$vendorProducts/$productId';
 
   // Notifications
   static const String notifications = '$apiPrefix/notifications';
