@@ -31,12 +31,23 @@ class _HomeScreenState extends State<HomeScreen> {
   // Cached future for featured products to prevent rebuilds
   late Future<Map<String, dynamic>> _featuredProductsFuture;
 
+  // Memoized filtered results to avoid recomputation
+  List<Map<String, dynamic>>? _cachedFilteredCanteens;
+  List<Map<String, dynamic>>? _cachedFilteredProducts;
+  String _lastSearchQuery = '';
+  String _lastSelectedCategory = '';
+  int _lastProductCount = 0;
+  int _lastCanteenCount = 0;
+
   // Active order toast variables
   bool _showOrderToast = false;
   String? _activeOrderId;
   String _orderStatus = 'preparing';
   String? _orderVendorName;
   Timer? _toastTimer;
+
+  // Debounce timer for search
+  Timer? _searchDebounceTimer;
 
   @override
   void initState() {
@@ -52,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _toastTimer?.cancel();
+    _searchDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -436,18 +448,34 @@ class _HomeScreenState extends State<HomeScreen> {
       animation: appState,
       builder: (context, _) {
         final allCanteens = appState.canteens.toList();
-        final filteredCanteens = _filteredCanteens(allCanteens);
-        final canteens = filteredCanteens.take(4).toList();
-        final products = _filteredProducts(
-          appState.products.toList(),
-          allCanteens,
-        );
+        final allProducts = appState.products.toList();
 
-        debugPrint(
-          '📊 Home: ${appState.products.length} total products, ${products.length} after filtering',
-        );
-        debugPrint('📊 Categories: ${appState.categories}');
-        debugPrint('📊 Selected category: $selectedCategory');
+        // Use memoized results if inputs haven't changed
+        final bool shouldRecalculateCanteens =
+            _cachedFilteredCanteens == null ||
+            _lastSearchQuery != searchQuery ||
+            _lastCanteenCount != allCanteens.length;
+
+        final bool shouldRecalculateProducts =
+            _cachedFilteredProducts == null ||
+            _lastSearchQuery != searchQuery ||
+            _lastSelectedCategory != selectedCategory ||
+            _lastProductCount != allProducts.length;
+
+        if (shouldRecalculateCanteens) {
+          _cachedFilteredCanteens = _filteredCanteens(allCanteens);
+          _lastSearchQuery = searchQuery;
+          _lastCanteenCount = allCanteens.length;
+        }
+
+        if (shouldRecalculateProducts) {
+          _cachedFilteredProducts = _filteredProducts(allProducts, allCanteens);
+          _lastSelectedCategory = selectedCategory;
+          _lastProductCount = allProducts.length;
+        }
+
+        final canteens = _cachedFilteredCanteens!.take(4).toList();
+        final products = _cachedFilteredProducts!;
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -553,8 +581,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         onChanged: (value) {
-          setState(() {
-            searchQuery = value;
+          // Cancel previous debounce timer
+          _searchDebounceTimer?.cancel();
+          // Set new debounce timer (300ms delay)
+          _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              setState(() {
+                searchQuery = value;
+              });
+            }
           });
         },
       ),
@@ -1248,6 +1283,26 @@ class _HomeScreenState extends State<HomeScreen> {
         delegate: SliverChildBuilderDelegate((context, index) {
           final product = products[index];
 
+          // Extract rating with proper type handling
+          final dynamic ratingData = product['rating'];
+          double rating = 0.0;
+          if (ratingData is num) {
+            rating = ratingData.toDouble();
+          } else if (ratingData is Map<String, dynamic>) {
+            final avg = ratingData['average'];
+            if (avg is num) rating = avg.toDouble();
+          }
+
+          // Extract review count
+          final dynamic reviewCountData = product['reviewCount'];
+          int reviewCount = 0;
+          if (reviewCountData is num) {
+            reviewCount = reviewCountData.toInt();
+          } else if (ratingData is Map<String, dynamic>) {
+            final count = ratingData['count'];
+            if (count is num) reviewCount = count.toInt();
+          }
+
           return ProductCard(
             productId: (product['id'] ?? '').toString(),
             name: (product['name'] ?? 'Product Name').toString(),
@@ -1256,8 +1311,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? product['imageUrl']['url'] ?? ''
                 : (product['imageUrl'] ?? '').toString(),
             canteenName: (product['canteenName'] ?? 'Unknown').toString(),
-            rating: (product['rating'] as num?)?.toDouble() ?? 0,
-            reviewCount: (product['reviewCount'] as num?)?.toInt() ?? 0,
+            rating: rating,
+            reviewCount: reviewCount,
             isFavorite: product['isFavorite'] == true,
             discount: product['discount']?.toString(),
             isNew: product['isNew'] == true,

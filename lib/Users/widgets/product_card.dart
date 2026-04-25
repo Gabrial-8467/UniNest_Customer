@@ -110,6 +110,8 @@ class ProductCard extends StatelessWidget {
               imageUrl,
               width: double.infinity,
               fit: BoxFit.cover,
+              // Enable HTTP caching for better performance
+              headers: const {'Cache-Control': 'max-age=3600'},
               errorBuilder: (context, error, stackTrace) {
                 return Container(
                   width: double.infinity,

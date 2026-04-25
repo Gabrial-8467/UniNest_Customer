@@ -61,6 +61,8 @@ class CanteenCard extends StatelessWidget {
                           width: 34,
                           height: 34,
                           fit: BoxFit.cover,
+                          // Enable HTTP caching for better performance
+                          headers: const {'Cache-Control': 'max-age=3600'},
                           errorBuilder: (context, error, stackTrace) =>
                               _buildDefaultIcon(),
                         )
