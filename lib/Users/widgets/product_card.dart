@@ -444,6 +444,8 @@ class ProductGrid extends StatelessWidget {
   final int crossAxisCount;
   final double childAspectRatio;
   final double spacing;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
 
   const ProductGrid({
     super.key,
@@ -454,12 +456,15 @@ class ProductGrid extends StatelessWidget {
     this.crossAxisCount = 2,
     this.childAspectRatio = 0.62,
     this.spacing = 16,
+    this.shrinkWrap = false,
+    this.physics,
   });
 
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      shrinkWrap: shrinkWrap,
+      physics: physics,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
         childAspectRatio: childAspectRatio,

@@ -11,6 +11,7 @@ import '../widgets/product_card.dart';
 import 'all_canteens.dart';
 import 'canteen_menu.dart';
 import 'product_details.dart';
+import 'search_results_screen.dart';
 import 'secret_signature_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -26,7 +27,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String selectedCategory = 'All';
   String selectedCanteenId = 'All';
-  String searchQuery = '';
 
   // Cached future for featured products to prevent rebuilds
   late Future<Map<String, dynamic>> _featuredProductsFuture;
@@ -34,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // Memoized filtered results to avoid recomputation
   List<Map<String, dynamic>>? _cachedFilteredCanteens;
   List<Map<String, dynamic>>? _cachedFilteredProducts;
-  String _lastSearchQuery = '';
   String _lastSelectedCategory = '';
   int _lastProductCount = 0;
   int _lastCanteenCount = 0;
@@ -45,9 +44,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _orderStatus = 'preparing';
   String? _orderVendorName;
   Timer? _toastTimer;
-
-  // Debounce timer for search
-  Timer? _searchDebounceTimer;
 
   @override
   void initState() {
@@ -63,7 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _toastTimer?.cancel();
-    _searchDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -375,69 +370,79 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _filteredCanteens(
     List<Map<String, dynamic>> canteens,
   ) {
-    final query = searchQuery.trim().toLowerCase();
+    // Sort canteens by rating score (highest first)
+    final sortedCanteens = canteens.toList()
+      ..sort((a, b) {
+        final ratingA = _extractRating(a);
+        final ratingB = _extractRating(b);
+        return ratingB.compareTo(ratingA); // Descending order
+      });
+    return sortedCanteens;
+  }
 
-    if (query.isEmpty) {
-      return canteens;
+  double _extractRating(Map<String, dynamic> canteen) {
+    final ratingData = canteen['rating'];
+    if (ratingData is Map<String, dynamic>) {
+      final average = ratingData['average'];
+      if (average is num) return average.toDouble();
+    } else if (ratingData is num) {
+      return ratingData.toDouble();
     }
-
-    return canteens.where((canteen) {
-      final name = (canteen['name'] ?? '').toString().toLowerCase();
-      final location = (canteen['location'] ?? '').toString().toLowerCase();
-      return name.contains(query) || location.contains(query);
-    }).toList();
+    return 0.0;
   }
 
   List<Map<String, dynamic>> _filteredProducts(
     List<Map<String, dynamic>> products,
     List<Map<String, dynamic>> canteens,
   ) {
-    final query = searchQuery.trim().toLowerCase();
-    final matchingCanteenIds = canteens
-        .where((canteen) {
-          final name = (canteen['name'] ?? '').toString().toLowerCase();
-          final location = (canteen['location'] ?? '').toString().toLowerCase();
-          return query.isNotEmpty &&
-              (name.contains(query) || location.contains(query));
-        })
-        .map((canteen) => (canteen['id'] ?? '').toString())
-        .toSet();
-
-    return products.where((product) {
-      final name = (product['name'] ?? '').toString().toLowerCase();
-      final description = (product['description'] ?? '')
-          .toString()
-          .toLowerCase();
-      final canteenName = (product['canteenName'] ?? '')
-          .toString()
-          .toLowerCase();
+    // Only filter by category and canteen on home screen
+    // Search filtering happens on separate search results page
+    final filtered = products.where((product) {
       final canteenId = (product['canteenId'] ?? '').toString();
 
       if (selectedCanteenId != 'All' && canteenId != selectedCanteenId) {
         return false;
       }
 
-      final matchesSearch = query.isEmpty
-          ? true
-          : name.contains(query) ||
-                description.contains(query) ||
-                canteenName.contains(query) ||
-                matchingCanteenIds.contains(canteenId);
-
-      if (!matchesSearch) {
-        return false;
+      if (selectedCategory != 'All') {
+        final productCategory = (product['category'] ?? '')
+            .toString()
+            .toLowerCase();
+        return productCategory == selectedCategory.toLowerCase();
       }
 
-      return _matchesCategory(product['category']);
+      return true;
     }).toList();
+
+    // Sort products by rating (highest first)
+    filtered.sort((a, b) {
+      final ratingA = _extractProductRating(a);
+      final ratingB = _extractProductRating(b);
+      return ratingB.compareTo(ratingA);
+    });
+
+    return filtered;
   }
 
-  bool _matchesCategory(String? productCategory) {
-    if (selectedCategory == 'All') {
-      return true;
+  double _extractProductRating(Map<String, dynamic> product) {
+    final ratingData = product['rating'];
+    if (ratingData is Map<String, dynamic>) {
+      final average = ratingData['average'];
+      if (average is num) return average.toDouble();
+    } else if (ratingData is num) {
+      return ratingData.toDouble();
     }
-
-    return productCategory?.toLowerCase() == selectedCategory.toLowerCase();
+    // Also check vendor rating
+    final vendor = product['vendor'];
+    if (vendor is Map<String, dynamic>) {
+      final vendorRating = vendor['rating'];
+      if (vendorRating is num) return vendorRating.toDouble();
+      if (vendorRating is Map<String, dynamic>) {
+        final average = vendorRating['average'];
+        if (average is num) return average.toDouble();
+      }
+    }
+    return 0.0;
   }
 
   @override
@@ -453,18 +458,15 @@ class _HomeScreenState extends State<HomeScreen> {
         // Use memoized results if inputs haven't changed
         final bool shouldRecalculateCanteens =
             _cachedFilteredCanteens == null ||
-            _lastSearchQuery != searchQuery ||
             _lastCanteenCount != allCanteens.length;
 
         final bool shouldRecalculateProducts =
             _cachedFilteredProducts == null ||
-            _lastSearchQuery != searchQuery ||
             _lastSelectedCategory != selectedCategory ||
             _lastProductCount != allProducts.length;
 
         if (shouldRecalculateCanteens) {
           _cachedFilteredCanteens = _filteredCanteens(allCanteens);
-          _lastSearchQuery = searchQuery;
           _lastCanteenCount = allCanteens.length;
         }
 
@@ -557,41 +559,36 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSearchBar() {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-      child: TextField(
-        decoration: InputDecoration(
-          hintText: 'Search products or canteens...',
-          prefixIcon: const Icon(Icons.search, color: AppColors.textLight),
-          filled: true,
-          fillColor: AppColors.surface,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 12,
-            horizontal: 16,
-          ),
-          border: OutlineInputBorder(
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SearchResultsScreen(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          child: Row(
+            children: [
+              const Icon(Icons.search, color: AppColors.textLight),
+              const SizedBox(width: 12),
+              Text(
+                'Search products or canteens...',
+                style: TextStyle(
+                  color: AppColors.textSecondary.withValues(alpha: 0.6),
+                  fontSize: 16,
+                ),
+              ),
+            ],
           ),
         ),
-        onChanged: (value) {
-          // Cancel previous debounce timer
-          _searchDebounceTimer?.cancel();
-          // Set new debounce timer (300ms delay)
-          _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
-            if (mounted) {
-              setState(() {
-                searchQuery = value;
-              });
-            }
-          });
-        },
       ),
     );
   }
@@ -1192,7 +1189,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            AllCanteensScreen(initialSearchQuery: searchQuery),
+                            AllCanteensScreen(initialSearchQuery: ''),
                       ),
                     );
                   },

@@ -263,8 +263,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             children: [
               _buildOrderSummary(appState),
               const SizedBox(height: 16),
-              _buildCouponField(appState),
-              const SizedBox(height: 16),
+              // _buildCouponField(appState),
+              // const SizedBox(height: 16),
               _buildFulfillmentType(),
               const SizedBox(height: 16),
               _buildDeliveryAddress(appState),
@@ -517,125 +517,125 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildCouponField(CampusAppState appState) {
-    final hasAppliedCoupon = appState.hasActiveCoupon || _couponCode != null;
-
-    return _sectionCard(
-      title: 'Coupon Code',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _couponController,
-                  enabled: !hasAppliedCoupon,
-                  decoration: InputDecoration(
-                    hintText: hasAppliedCoupon
-                        ? 'Coupon applied'
-                        : 'Enter coupon code (e.g., SAVE10)',
-                    prefixIcon: const Icon(
-                      Icons.local_offer,
-                      color: AppColors.textSecondary,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.textLight),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.textLight),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.primary),
-                    ),
-                    filled: true,
-                    fillColor: AppColors.background,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (hasAppliedCoupon)
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _couponCode = null;
-                      _couponController.clear();
-                    });
-                    appState.clearBackendPricing();
-                    _fetchBackendPricing();
-                  },
-                  icon: const Icon(Icons.close, size: 18),
-                  label: const Text('Remove'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                )
-              else
-                ElevatedButton(
-                  onPressed: _isLoadingPricing
-                      ? null
-                      : () async {
-                          final code = _couponController.text.trim();
-                          if (code.isEmpty) return;
-                          setState(() => _couponCode = code);
-                          await _fetchBackendPricing();
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isLoadingPricing
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Apply'),
-                ),
-            ],
-          ),
-          if (hasAppliedCoupon) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Coupon ${appState.appliedCoupon?['code'] ?? _couponCode ?? ''} applied!',
-                    style: const TextStyle(
-                      color: Colors.green,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
+  // Widget _buildCouponField(CampusAppState appState) {
+  //   final hasAppliedCoupon = appState.hasActiveCoupon || _couponCode != null;
+  //
+  //   return _sectionCard(
+  //     title: 'Coupon Code',
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Row(
+  //           children: [
+  //             Expanded(
+  //               child: TextField(
+  //                 controller: _couponController,
+  //                 enabled: !hasAppliedCoupon,
+  //                 decoration: InputDecoration(
+  //                   hintText: hasAppliedCoupon
+  //                       ? 'Coupon applied'
+  //                       : 'Enter coupon code (e.g., SAVE10)',
+  //                   prefixIcon: const Icon(
+  //                     Icons.local_offer,
+  //                     color: AppColors.textSecondary,
+  //                   ),
+  //                   border: OutlineInputBorder(
+  //                     borderRadius: BorderRadius.circular(12),
+  //                     borderSide: BorderSide(color: AppColors.textLight),
+  //                   ),
+  //                   enabledBorder: OutlineInputBorder(
+  //                     borderRadius: BorderRadius.circular(12),
+  //                     borderSide: BorderSide(color: AppColors.textLight),
+  //                   ),
+  //                   focusedBorder: OutlineInputBorder(
+  //                     borderRadius: BorderRadius.circular(12),
+  //                     borderSide: BorderSide(color: AppColors.primary),
+  //                   ),
+  //                   filled: true,
+  //                   fillColor: AppColors.background,
+  //                 ),
+  //               ),
+  //             ),
+  //             const SizedBox(width: 12),
+  //             if (hasAppliedCoupon)
+  //               ElevatedButton.icon(
+  //                 onPressed: () {
+  //                   setState(() {
+  //                     _couponCode = null;
+  //                     _couponController.clear();
+  //                   });
+  //                   appState.clearBackendPricing();
+  //                   _fetchBackendPricing();
+  //                 },
+  //                 icon: const Icon(Icons.close, size: 18),
+  //                 label: const Text('Remove'),
+  //                 style: ElevatedButton.styleFrom(
+  //                   backgroundColor: Colors.red,
+  //                   foregroundColor: Colors.white,
+  //                   shape: RoundedRectangleBorder(
+  //                     borderRadius: BorderRadius.circular(12),
+  //                   ),
+  //                 ),
+  //               )
+  //             else
+  //               ElevatedButton(
+  //                 onPressed: _isLoadingPricing
+  //                     ? null
+  //                     : () async {
+  //                         final code = _couponController.text.trim();
+  //                         if (code.isEmpty) return;
+  //                         setState(() => _couponCode = code);
+  //                         await _fetchBackendPricing();
+  //                       },
+  //                 style: ElevatedButton.styleFrom(
+  //                   backgroundColor: AppColors.primary,
+  //                   foregroundColor: Colors.white,
+  //                   shape: RoundedRectangleBorder(
+  //                     borderRadius: BorderRadius.circular(12),
+  //                   ),
+  //                 ),
+  //                 child: _isLoadingPricing
+  //                     ? const SizedBox(
+  //                         width: 20,
+  //                         height: 20,
+  //                         child: CircularProgressIndicator(
+  //                           strokeWidth: 2,
+  //                           color: Colors.white,
+  //                         ),
+  //                       )
+  //                     : const Text('Apply'),
+  //               ),
+  //           ],
+  //         ),
+  //         if (hasAppliedCoupon) ...[
+  //           const SizedBox(height: 8),
+  //           Container(
+  //             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+  //             decoration: BoxDecoration(
+  //               color: Colors.green.withValues(alpha: 0.1),
+  //               borderRadius: BorderRadius.circular(8),
+  //             ),
+  //             child: Row(
+  //               mainAxisSize: MainAxisSize.min,
+  //               children: [
+  //                 const Icon(Icons.check_circle, color: Colors.green, size: 16),
+  //                 const SizedBox(width: 6),
+  //                 Text(
+  //                   'Coupon ${appState.appliedCoupon?['code'] ?? _couponCode ?? ''} applied!',
+  //                   style: const TextStyle(
+  //                     color: Colors.green,
+  //                     fontWeight: FontWeight.w600,
+  //                     fontSize: 13,
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         ],
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildFulfillmentType() {
     return _sectionCard(

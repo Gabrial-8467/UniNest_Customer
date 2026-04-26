@@ -17,7 +17,6 @@ class CanteenMenuScreen extends StatefulWidget {
 
 class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
   String selectedCategory = 'All';
-  String searchQuery = '';
 
   // Cached future for featured products to prevent rebuilds
   late Future<Map<String, dynamic>> _featuredProductsFuture;
@@ -36,16 +35,6 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
   ) {
     return products.where((product) {
       final name = (product['name'] ?? '').toString().toLowerCase();
-      final description = (product['description'] ?? '')
-          .toString()
-          .toLowerCase();
-      final query = searchQuery.trim().toLowerCase();
-
-      if (query.isNotEmpty &&
-          !name.contains(query) &&
-          !description.contains(query)) {
-        return false;
-      }
 
       if (selectedCategory == 'All') {
         return true;
@@ -114,43 +103,48 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
               icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3436)),
             ),
           ),
-          body: Column(
-            children: [
-              _buildCanteenHeader(canteen),
-              _buildFeaturedProductsSection(appState),
-              _buildSearch(),
-              _buildCategories(),
-              Expanded(
-                child: filtered.isEmpty
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildCanteenHeader(canteen),
+                _buildCategories(),
+                if (selectedCategory == 'All')
+                  _buildFeaturedProductsSection(appState),
+                filtered.isEmpty
                     ? _buildEmptyState()
-                    : ProductGrid(
-                        products: filtered,
-                        onProductTap: (productId) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  ProductDetailsScreen(productId: productId),
-                            ),
-                          );
-                        },
-                        onFavoriteToggle: (productId, isFavorite) {
-                          appState.setFavorite(productId, isFavorite);
-                        },
-                        onAddToCart: (productId) {
-                          final added = appState.addToCart(productId);
-                          if (added) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Added to cart'),
-                                backgroundColor: Color(0xFFFF6B6B),
+                    : Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: ProductGrid(
+                          products: filtered,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          onProductTap: (productId) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ProductDetailsScreen(productId: productId),
                               ),
                             );
-                          }
-                        },
+                          },
+                          onFavoriteToggle: (productId, isFavorite) {
+                            appState.setFavorite(productId, isFavorite);
+                          },
+                          onAddToCart: (productId) {
+                            final added = appState.addToCart(productId);
+                            if (added) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Added to cart'),
+                                  backgroundColor: Color(0xFFFF6B6B),
+                                ),
+                              );
+                            }
+                          },
+                        ),
                       ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -227,41 +221,6 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
     );
   }
 
-  Widget _buildSearch() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: TextField(
-        onChanged: (value) {
-          setState(() {
-            searchQuery = value;
-          });
-        },
-        decoration: InputDecoration(
-          hintText: 'Search in this canteen...',
-          prefixIcon: const Icon(Icons.search, color: Colors.grey),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 12,
-            horizontal: 16,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFFF6B6B), width: 2),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildCategories() {
     return Container(
       height: 50,
@@ -281,6 +240,7 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
               });
             },
             child: Container(
+              constraints: const BoxConstraints(minWidth: 80),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
                 color: isSelected ? const Color(0xFFFF6B6B) : Colors.white,
@@ -289,12 +249,17 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                     ? null
                     : Border.all(color: Colors.grey[300]!),
               ),
-              child: Text(
-                category,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : const Color(0xFF2D3436),
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              child: Center(
+                child: Text(
+                  category,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF2D3436),
+                    fontSize: 13,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
                 ),
               ),
             ),
@@ -323,7 +288,7 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Try changing your search or category filter.',
+              'Try changing your category filter.',
               style: TextStyle(color: Colors.grey[600]),
             ),
           ],
@@ -391,19 +356,16 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                 ],
               ),
             ),
-            SizedBox(
-              height: 180,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: featuredProducts.length,
-                itemBuilder: (context, index) {
-                  final product = featuredProducts[index];
-                  return _buildFeaturedProductCard(product, appState);
-                },
-              ),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: featuredProducts.length,
+              itemBuilder: (context, index) {
+                final product = featuredProducts[index];
+                return _buildFeaturedProductCard(product, appState);
+              },
             ),
-            const SizedBox(height: 8),
           ],
         );
       },
@@ -428,7 +390,6 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
     CampusAppState appState,
   ) {
     final productId = (product['id'] ?? product['_id'] ?? '').toString();
-    final name = (product['name'] ?? 'Product').toString();
     final price = (product['price'] as num?)?.toDouble() ?? 0;
     final images = product['images'];
     String imageUrl = '';
@@ -442,11 +403,45 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
     } else {
       imageUrl = (product['imageUrl'] ?? product['image'] ?? '').toString();
     }
-    final isFeatured = product['isFeatured'] == true;
+
+    // Extract vendor name
+    String canteenName = 'Unknown';
+    final vendor = product['vendor'];
+    if (vendor is Map) {
+      canteenName =
+          (vendor['name'] ??
+                  vendor['businessName'] ??
+                  vendor['canteenName'] ??
+                  'Unknown')
+              .toString();
+    } else {
+      canteenName =
+          (product['canteenName'] ??
+                  product['vendorName'] ??
+                  product['businessName'] ??
+                  'Unknown')
+              .toString();
+    }
+
+    // Extract rating
+    final dynamic rawRatingData = product['rating'];
+    double? rawRating;
+    if (rawRatingData is num) {
+      rawRating = rawRatingData.toDouble();
+    } else if (rawRatingData is Map<String, dynamic>) {
+      final avg = rawRatingData['average'];
+      if (avg is num) {
+        rawRating = avg.toDouble();
+      }
+    }
+    final rating = (rawRating != null && rawRating > 0) ? rawRating : null;
+    final cuisine = (product['category'] ?? '').toString();
+    final deliveryTime = product['deliveryTime']?.toString();
+    final distance = product['distance']?.toString();
+    final offer = product['offer']?.toString();
 
     return Container(
-      width: 140,
-      margin: const EdgeInsets.only(right: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: GestureDetector(
         onTap: () {
           Navigator.push(
@@ -457,9 +452,9 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
           );
         },
         child: Card(
-          elevation: 2,
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,111 +463,181 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
+                      top: Radius.circular(16),
                     ),
                     child: imageUrl.isNotEmpty
                         ? Image.network(
                             imageUrl,
-                            height: 90,
+                            height: 180,
                             width: double.infinity,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => Container(
-                              height: 90,
+                              height: 180,
                               color: Colors.grey[200],
-                              child: const Icon(Icons.image_not_supported),
+                              child: const Icon(
+                                Icons.image_not_supported,
+                                size: 50,
+                              ),
                             ),
                           )
                         : Container(
-                            height: 90,
+                            height: 180,
                             color: Colors.grey[200],
-                            child: const Icon(Icons.image_not_supported),
+                            child: const Icon(
+                              Icons.image_not_supported,
+                              size: 50,
+                            ),
                           ),
                   ),
-                  if (isFeatured)
+                  if (rating != null)
                     Positioned(
-                      top: 6,
-                      left: 6,
+                      bottom: 12,
+                      right: 12,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF6B6B),
-                          borderRadius: BorderRadius.circular(8),
+                          color: const Color(0xFF4CAF50),
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.star, color: Colors.white, size: 10),
-                            SizedBox(width: 2),
                             Text(
-                              'Featured',
-                              style: TextStyle(
+                              rating.toStringAsFixed(1),
+                              style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 9,
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
+                            ),
+                            const SizedBox(width: 2),
+                            const Icon(
+                              Icons.star,
+                              color: Colors.white,
+                              size: 12,
                             ),
                           ],
                         ),
                       ),
                     ),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.favorite_border,
+                        color: Colors.grey[600],
+                        size: 20,
+                      ),
+                    ),
+                  ),
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      canteenName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 18,
+                        color: Color(0xFF2D3436),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '\u20B9${price.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Color(0xFFFF6B6B),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            final added = appState.addToCart(productId);
-                            if (added) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Added to cart'),
-                                  backgroundColor: Color(0xFFFF6B6B),
-                                ),
-                              );
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF6B6B),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(
-                              Icons.add,
-                              color: Colors.white,
-                              size: 14,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      cuisine.isNotEmpty
+                          ? '$cuisine \u2022 \u20B9${price.toStringAsFixed(0)} for one'
+                          : '\u20B9${price.toStringAsFixed(0)} for one',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                     ),
+                    if (deliveryTime != null || distance != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            if (deliveryTime != null) ...[
+                              Icon(
+                                Icons.access_time,
+                                size: 14,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                deliveryTime,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                            if (deliveryTime != null && distance != null)
+                              const SizedBox(width: 12),
+                            if (distance != null) ...[
+                              Icon(
+                                Icons.location_on,
+                                size: 14,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                distance,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    if (offer != null && offer.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.local_offer,
+                                size: 12,
+                                color: const Color(0xFF4CAF50),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                offer,
+                                style: const TextStyle(
+                                  color: Color(0xFF4CAF50),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

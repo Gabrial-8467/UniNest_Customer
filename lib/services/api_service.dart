@@ -660,12 +660,23 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> search({
-    required String token,
-    required String query,
-    String? type,
+    String? token,
+    String? query,
+    String? category,
+    String? vendor,
+    String? vendorName,
+    bool? featured,
+    int? limit,
+    int? skip,
   }) async {
-    final queryParams = <String, String>{'q': query};
-    if (type != null) queryParams['type'] = type;
+    final queryParams = <String, String>{};
+    if (query != null && query.isNotEmpty) queryParams['q'] = query;
+    if (category != null) queryParams['category'] = category;
+    if (vendor != null) queryParams['vendor'] = vendor;
+    if (vendorName != null) queryParams['vendorName'] = vendorName;
+    if (featured != null) queryParams['featured'] = featured.toString();
+    if (limit != null) queryParams['limit'] = limit.toString();
+    if (skip != null) queryParams['skip'] = skip.toString();
 
     return await _makeRequest(
       method: 'GET',

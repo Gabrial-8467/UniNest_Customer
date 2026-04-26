@@ -33,7 +33,7 @@ class ApiEndpoints {
   // Vendor Products
   static const String vendorProducts = '$vendorApiPrefix/products';
   static const int maxFeaturedProducts = 3; // Vendor featured products limit
-  static const String search = '/api/search';
+  static const String search = '/api/public/search';
 
   // Orders
   static const String orders = '$apiPrefix/orders';

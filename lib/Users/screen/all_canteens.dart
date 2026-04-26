@@ -28,14 +28,41 @@ class _AllCanteensScreenState extends State<AllCanteensScreen> {
     final query = searchQuery.trim().toLowerCase();
 
     if (query.isEmpty) {
-      return canteens;
+      // Sort by rating when no search query
+      final sorted = canteens.toList()
+        ..sort((a, b) {
+          final ratingA = _extractRating(a);
+          final ratingB = _extractRating(b);
+          return ratingB.compareTo(ratingA);
+        });
+      return sorted;
     }
 
-    return canteens.where((canteen) {
+    final filtered = canteens.where((canteen) {
       final name = (canteen['name'] ?? '').toString().toLowerCase();
       final location = (canteen['location'] ?? '').toString().toLowerCase();
       return name.contains(query) || location.contains(query);
     }).toList();
+
+    // Sort by rating even when searching
+    filtered.sort((a, b) {
+      final ratingA = _extractRating(a);
+      final ratingB = _extractRating(b);
+      return ratingB.compareTo(ratingA);
+    });
+
+    return filtered;
+  }
+
+  double _extractRating(Map<String, dynamic> canteen) {
+    final ratingData = canteen['rating'];
+    if (ratingData is Map<String, dynamic>) {
+      final average = ratingData['average'];
+      if (average is num) return average.toDouble();
+    } else if (ratingData is num) {
+      return ratingData.toDouble();
+    }
+    return 0.0;
   }
 
   @override
