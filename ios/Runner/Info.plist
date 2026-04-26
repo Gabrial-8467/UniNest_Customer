@@ -26,12 +26,7 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>Campus Eats uses the camera so you can take profile and food photos.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Campus Eats uses your photo library so you can choose profile and food images.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Campus Eats may save images to your photo library when you choose to export or share them.</string>
+	<!-- Required for location-based features (nearby vendors, delivery) -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Campus Eats uses your location to show nearby vendors and improve delivery-related features.</string>
 	<key>UIApplicationSceneManifest</key>
@@ -57,6 +52,10 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

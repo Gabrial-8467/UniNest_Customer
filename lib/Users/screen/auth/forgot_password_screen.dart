@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../services/api_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -21,19 +22,38 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> _resetPassword() async {
     if (_formKey.currentState!.validate()) {
+      final email = _emailController.text.trim();
+      debugPrint('🔐 Forgot Password Request - Email: $email');
+
       setState(() {
         _isLoading = true;
       });
 
       try {
-        // Simulate API call delay
-        await Future.delayed(const Duration(seconds: 2));
+        debugPrint('📡 Calling API...');
+        final response = await ApiService.forgotPassword(email);
+        debugPrint('📡 API Response: $response');
 
-        // Mock successful password reset
-        setState(() {
-          _emailSent = true;
-        });
+        if (response['success'] == true) {
+          debugPrint('✅ Email sent successfully');
+          setState(() {
+            _emailSent = true;
+          });
+        } else {
+          debugPrint('❌ API Error: ${response['message']}');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  response['message'] ?? 'Failed to send reset email',
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
       } catch (e) {
+        debugPrint('❌ Exception: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -193,7 +213,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 24),
           _buildResetButton(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           _buildBackToLoginLink(),
         ],
       ),
@@ -242,13 +262,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           Text(
             'We\'ve sent password reset instructions to\n${_emailController.text}',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               color: Colors.grey[600],
               height: 1.4,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 35),
           _buildBackToLoginButton(),
         ],
       ),
@@ -391,7 +411,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         child: const Text(
           'Back to Login',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 15,
             fontWeight: FontWeight.w700,
             color: Color(0xFFFF6B6B),
             letterSpacing: 0.5,

@@ -7,12 +7,16 @@ import 'Users/state/app_state.dart';
 import 'splash_screen.dart';
 import 'config/app_config.dart';
 import 'utils/app_theme.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize secure configuration
   await AppConfig.initialize();
+
+  // Initialize Firebase and push notifications
+  await NotificationService.initialize();
 
   runApp(const MyApp());
 }
