@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../firebase_options.dart';
+import 'auth_service.dart';
 
 class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -51,13 +52,21 @@ class NotificationService {
 
   static Future<void> _registerTokenWithBackend(String token) async {
     try {
+      // Get actual JWT token from AuthService
+      final authToken = await AuthService.getToken();
+
+      if (authToken == null || authToken.isEmpty) {
+        debugPrint('❌ No auth token available for FCM registration');
+        return;
+      }
+
       // Call your backend API
       final response = await http.post(
         Uri.parse(
           'https://uninest-backend.onrender.com/api/notifications/register-token',
         ),
         headers: {
-          'Authorization': 'Bearer YOUR_AUTH_TOKEN',
+          'Authorization': 'Bearer $authToken',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -97,5 +106,50 @@ class NotificationService {
   /// Get the current FCM token (useful for testing)
   static Future<String?> getToken() async {
     return await _messaging.getToken();
+  }
+
+  /// Test FCM token registration (for development testing)
+  static Future<void> testTokenRegistration() async {
+    try {
+      final token = await getToken();
+      if (token != null) {
+        debugPrint('🔍 Test: FCM token obtained: ${token.substring(0, 20)}...');
+
+        // Get actual JWT token from AuthService
+        final authToken = await AuthService.getToken();
+
+        if (authToken == null || authToken.isEmpty) {
+          debugPrint('❌ Test: No auth token available - please login first');
+          return;
+        }
+
+        debugPrint('🔍 Test: Auth token available, attempting registration...');
+
+        final response = await http.post(
+          Uri.parse(
+            'https://uninest-backend.onrender.com/api/notifications/register-token',
+          ),
+          headers: {
+            'Authorization': 'Bearer $authToken',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'fcmToken': token,
+            'deviceType': 'android',
+            'deviceName': 'User Device',
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          debugPrint('✅ Test: FCM token registered successfully');
+        } else {
+          debugPrint('❌ Test: Registration failed - ${response.body}');
+        }
+      } else {
+        debugPrint('❌ Test: Failed to get FCM token');
+      }
+    } catch (e) {
+      debugPrint('❌ Test: Error testing token registration: $e');
+    }
   }
 }

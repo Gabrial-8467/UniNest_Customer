@@ -7,6 +7,7 @@ import '../../../utils/utils.dart';
 import 'help_support.dart';
 import 'order_history.dart';
 import 'wishlist.dart';
+import '../../../services/notification_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool showBackButton;
@@ -353,6 +354,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const HelpSupportScreen(showBackButton: true),
                 ),
               );
+            },
+          ),
+          const SizedBox(height: 10),
+          _menuItem(
+            icon: Icons.notifications,
+            title: 'Test Notifications',
+            subtitle: 'Test FCM token registration',
+            onTap: () {
+              NotificationService.testTokenRegistration();
             },
           ),
           const SizedBox(height: 10),
