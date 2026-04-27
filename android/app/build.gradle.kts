@@ -38,6 +38,16 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+    
+    applicationVariants.configureEach {
+        val variant = this
+        variant.outputs
+            .configureEach {
+                val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+                val outputFileName = "UniNest-${variant.versionName}-${variant.buildType.name}.apk"
+                output.outputFileName = outputFileName
+            }
+    }
 }
 
 dependencies {

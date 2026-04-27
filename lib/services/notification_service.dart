@@ -5,9 +5,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../firebase_options.dart';
 import 'auth_service.dart';
+import 'dart:async';
 
 class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  static final StreamController<Map<String, dynamic>> _notificationController =
+      StreamController<Map<String, dynamic>>.broadcast();
+
+  static Stream<Map<String, dynamic>> get onNotification =>
+      _notificationController.stream;
 
   static Future<void> initialize() async {
     await Firebase.initializeApp(
@@ -40,7 +46,15 @@ class NotificationService {
     // Foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('Foreground notification: ${message.notification?.title}');
-      // Show a local notification or in-app banner here
+
+      // Broadcast notification to UI
+      final notificationData = {
+        'title': message.notification?.title ?? '',
+        'body': message.notification?.body ?? '',
+        'data': message.data,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      _notificationController.add(notificationData);
     });
 
     // App opened from notification (background/terminated)

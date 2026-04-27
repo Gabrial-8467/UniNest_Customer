@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../../utils/app_theme.dart';
 import '../state/app_state.dart';
 import 'order_tracking.dart';
@@ -24,6 +26,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int currentPage = 1;
   int totalPages = 1;
   bool hasMoreData = false;
+  StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
 
   static const String _menuMarkAllRead = 'mark_all_read';
   static const String _menuClearAll = 'clear_all';
@@ -33,6 +36,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     _loadNotifications();
+    _listenToNotifications();
+  }
+
+  void _listenToNotifications() {
+    _notificationSubscription = NotificationService.onNotification.listen((
+      notificationData,
+    ) {
+      if (mounted) {
+        setState(() {
+          // Add new notification to the beginning of the list
+          notifications.insert(0, {
+            '_id': DateTime.now().millisecondsSinceEpoch.toString(),
+            'title': notificationData['title'] ?? '',
+            'message': notificationData['body'] ?? '',
+            'isRead': false,
+            'createdAt':
+                notificationData['timestamp'] ??
+                DateTime.now().toIso8601String(),
+            'data': notificationData['data'] ?? {},
+          });
+        });
+
+        // Update notification count in app state
+        AppStateScope.of(context).updateNotificationCount(
+          notifications.where((n) => !(n['isRead'] ?? false)).length,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadNotifications({bool refresh = false}) async {
