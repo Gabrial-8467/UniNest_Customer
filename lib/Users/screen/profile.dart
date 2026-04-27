@@ -4,10 +4,8 @@ import '../../../services/auth_service.dart';
 import '../../../utils/app_theme.dart';
 import '../../../utils/utils.dart';
 
-import 'help_support.dart';
 import 'order_history.dart';
 import 'wishlist.dart';
-import '../../../services/notification_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool showBackButton;
@@ -345,25 +343,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _menuItem(
             icon: Icons.help,
             title: 'Help & Support',
-            subtitle: 'Get help and contact support',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      const HelpSupportScreen(showBackButton: true),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          _menuItem(
-            icon: Icons.notifications,
-            title: 'Test Notifications',
-            subtitle: 'Test FCM token registration',
-            onTap: () {
-              NotificationService.testTokenRegistration();
-            },
+            subtitle: 'Coming soon',
+            onTap: _showHelpSupportComingSoonDialog,
           ),
           const SizedBox(height: 10),
           _menuItem(
@@ -431,6 +412,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: AppColors.textLight,
         ),
         onTap: onTap,
+      ),
+    );
+  }
+
+  void _showHelpSupportComingSoonDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Help & Support Coming Soon'),
+        content: const Text(
+          'The Help & Support system is coming soon. Until then, please report your issue at deoragabrial@gmail.com.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
