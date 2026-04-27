@@ -44,24 +44,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       notificationData,
     ) {
       if (mounted) {
-        setState(() {
-          // Add new notification to the beginning of the list
-          notifications.insert(0, {
-            '_id': DateTime.now().millisecondsSinceEpoch.toString(),
-            'title': notificationData['title'] ?? '',
-            'message': notificationData['body'] ?? '',
-            'isRead': false,
-            'createdAt':
-                notificationData['timestamp'] ??
-                DateTime.now().toIso8601String(),
-            'data': notificationData['data'] ?? {},
-          });
-        });
+        final title = notificationData['title']?.toString().trim() ?? '';
+        final message = notificationData['body']?.toString().trim() ?? '';
 
-        // Update notification count in app state
-        AppStateScope.of(context).updateNotificationCount(
-          notifications.where((n) => !(n['isRead'] ?? false)).length,
-        );
+        // Only add notification if it has actual content
+        if (title.isNotEmpty || message.isNotEmpty) {
+          setState(() {
+            // Add new notification to the beginning of the list
+            notifications.insert(0, {
+              '_id': DateTime.now().millisecondsSinceEpoch.toString(),
+              'title': title,
+              'message': message,
+              'isRead': false,
+              'createdAt':
+                  notificationData['timestamp'] ??
+                  DateTime.now().toIso8601String(),
+              'data': notificationData['data'] ?? {},
+            });
+          });
+
+          // Update notification count in app state
+          AppStateScope.of(context).updateNotificationCount(
+            notifications.where((n) => !(n['isRead'] ?? false)).length,
+          );
+        }
       }
     });
   }

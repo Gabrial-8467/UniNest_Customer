@@ -45,16 +45,44 @@ class NotificationService {
 
     // Foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Foreground notification: ${message.notification?.title}');
+      debugPrint('=== NOTIFICATION DEBUG ===');
+      debugPrint('Full message: ${message.toString()}');
+      debugPrint('Notification title: ${message.notification?.title}');
+      debugPrint('Notification body: ${message.notification?.body}');
+      debugPrint('Message data: ${message.data}');
+
+      // Extract title and message from notification object (primary)
+      String title = message.notification?.title ?? '';
+      String body = message.notification?.body ?? '';
+
+      // Backend sends notification in notification object, fallback to data if needed
+      if (title.isEmpty && message.data.isNotEmpty) {
+        title = message.data['title']?.toString() ?? '';
+      }
+      if (body.isEmpty && message.data.isNotEmpty) {
+        body =
+            message.data['body']?.toString() ??
+            message.data['message']?.toString() ??
+            '';
+      }
+
+      debugPrint('=== EXTRACTED VALUES ===');
+      debugPrint('Final title: "$title"');
+      debugPrint('Final body: "$body"');
+      debugPrint('Title empty: ${title.isEmpty}');
+      debugPrint('Body empty: ${body.isEmpty}');
 
       // Broadcast notification to UI
       final notificationData = {
-        'title': message.notification?.title ?? '',
-        'body': message.notification?.body ?? '',
+        'title': title,
+        'body': body,
         'data': message.data,
         'timestamp': DateTime.now().toIso8601String(),
       };
+
+      debugPrint('Broadcasting notification: $notificationData');
       _notificationController.add(notificationData);
+      debugPrint('=== END NOTIFICATION DEBUG ===');
     });
 
     // App opened from notification (background/terminated)
