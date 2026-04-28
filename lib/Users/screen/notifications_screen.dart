@@ -45,22 +45,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     ) {
       if (mounted) {
         final title = notificationData['title']?.toString().trim() ?? '';
-        final message = notificationData['body']?.toString().trim() ?? '';
+        final message =
+            (notificationData['body'] ?? notificationData['message'])
+                ?.toString()
+                .trim() ??
+            '';
 
         // Only add notification if it has actual content
         if (title.isNotEmpty || message.isNotEmpty) {
           setState(() {
             // Add new notification to the beginning of the list
-            notifications.insert(0, {
-              '_id': DateTime.now().millisecondsSinceEpoch.toString(),
-              'title': title,
-              'message': message,
-              'isRead': false,
-              'createdAt':
-                  notificationData['timestamp'] ??
-                  DateTime.now().toIso8601String(),
-              'data': notificationData['data'] ?? {},
-            });
+            notifications.insert(
+              0,
+              _normalizeNotification({
+                '_id':
+                    notificationData['notificationId'] ??
+                    notificationData['id'] ??
+                    DateTime.now().millisecondsSinceEpoch.toString(),
+                'title': title,
+                'message': message,
+                'body': notificationData['body'],
+                'type': notificationData['type'],
+                'isRead': false,
+                'createdAt':
+                    notificationData['timestamp'] ??
+                    DateTime.now().toIso8601String(),
+                'data': notificationData['data'] ?? {},
+              }),
+            );
           });
 
           // Update notification count in app state
@@ -116,27 +128,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         final data = result['data'] ?? {};
         final clearedNotificationIds = await _getClearedNotificationIds();
         // Handle different API response structures
-        final notificationsData = data['notifications'];
-        final List<dynamic> newNotifications;
-        if (notificationsData is List) {
-          newNotifications = notificationsData;
-        } else if (notificationsData is Map) {
-          // If notifications is a map, try to extract values or use empty list
-          newNotifications = notificationsData.values.toList();
-        } else {
-          newNotifications = [];
-        }
+        final newNotifications = _extractNotificationList(
+          data['notifications'],
+        );
+        final cachedNotifications =
+            await NotificationService.getCachedNotifications();
         final pagination = data['pagination'] ?? {};
 
         setState(() {
-          final castNotifications = newNotifications
-              .whereType<Map<String, dynamic>>()
-              .where((notification) {
+          final castNotifications =
+              _dedupeNotifications([
+                ...cachedNotifications,
+                ...newNotifications,
+              ]).where((notification) {
                 final notificationId = (notification['_id'] ?? '').toString();
                 return notificationId.isEmpty ||
                     !clearedNotificationIds.contains(notificationId);
-              })
-              .toList();
+              }).toList();
           if (refresh || currentPage == 1) {
             notifications = castNotifications;
           } else {
@@ -189,6 +197,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       final result = await ApiService.markAllNotificationsRead(token);
       if (result['success'] == true) {
+        await NotificationService.clearCachedNotifications();
         await _loadNotifications(refresh: true);
         if (mounted) {
           final allIds = notifications
@@ -242,6 +251,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         .toSet()
         .toList();
     await _saveClearedNotificationIds(notificationIds);
+    await NotificationService.clearCachedNotifications();
 
     if (!mounted) return;
 
@@ -306,6 +316,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           notifications[index]['isRead'] = true;
         }
       });
+      await NotificationService.markCachedNotificationRead(notificationId);
 
       // Call API to mark single notification as read
       await ApiService.markNotificationAsRead(
@@ -434,29 +445,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             : null,
         automaticallyImplyLeading: widget.showBackButton,
         actions: [
-          if (notifications.isNotEmpty)
-            PopupMenuButton<String>(
-              onSelected: _handleHeaderMenuAction,
-              icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
-              itemBuilder: (context) => const [
-                PopupMenuItem<String>(
-                  value: _menuMarkAllRead,
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.done_all),
-                    title: Text('Mark all as read'),
-                  ),
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: isLoading
+                ? null
+                : () => _loadNotifications(refresh: true),
+            icon: const Icon(Icons.refresh, color: AppColors.textPrimary),
+          ),
+          PopupMenuButton<String>(
+            onSelected: _handleHeaderMenuAction,
+            icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: _menuMarkAllRead,
+                enabled: notifications.isNotEmpty,
+                child: const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.done_all),
+                  title: Text('Mark all as read'),
                 ),
-                PopupMenuItem<String>(
-                  value: _menuClearAll,
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.clear_all),
-                    title: Text('Clear all notifications'),
-                  ),
+              ),
+              PopupMenuItem<String>(
+                value: _menuClearAll,
+                enabled: notifications.isNotEmpty,
+                child: const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.clear_all),
+                  title: Text('Clear all notifications'),
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -469,68 +488,103 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _buildBody() {
     if (isLoading && notifications.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+      return const SingleChildScrollView(
+        physics: AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: 500,
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
+        ),
       );
     }
 
     if (errorMessage != null && notifications.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: AppColors.textLight),
-              const SizedBox(height: 16),
-              Text(
-                errorMessage!,
-                style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-                textAlign: TextAlign.center,
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.75,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: AppColors.textLight,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    errorMessage!,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () => _loadNotifications(refresh: true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => _loadNotifications(refresh: true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Retry'),
-              ),
-            ],
+            ),
           ),
         ),
       );
     }
 
     if (notifications.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.notifications_off_outlined,
-                size: 80,
-                color: AppColors.textLight,
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.75,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.notifications_off_outlined,
+                    size: 80,
+                    color: AppColors.textLight,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No notifications yet',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'We\'ll notify you about orders, offers, and updates',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  OutlinedButton.icon(
+                    onPressed: () => _loadNotifications(refresh: true),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Refresh'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                'No notifications yet',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'We\'ll notify you about orders, offers, and updates',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ),
         ),
       );
@@ -603,7 +657,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    title,
+                    title.isNotEmpty ? title : 'Notification',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
@@ -625,16 +679,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 4),
-                Text(
-                  message,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
+                if (message.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                ],
                 const SizedBox(height: 8),
                 Text(
                   _formatTimeAgo(createdAt),
@@ -647,6 +703,93 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         );
       },
     );
+  }
+
+  List<dynamic> _extractNotificationList(dynamic notificationsData) {
+    if (notificationsData is List) {
+      return notificationsData;
+    }
+
+    if (notificationsData is Map) {
+      final nestedNotifications = notificationsData['notifications'];
+      if (nestedNotifications is List) {
+        return nestedNotifications;
+      }
+
+      return notificationsData.values.whereType<Map>().toList();
+    }
+
+    return const [];
+  }
+
+  List<Map<String, dynamic>> _dedupeNotifications(
+    List<dynamic> rawNotifications,
+  ) {
+    final seenKeys = <String>{};
+    final dedupedNotifications = <Map<String, dynamic>>[];
+
+    for (final rawNotification in rawNotifications) {
+      final notification = _normalizeNotification(rawNotification);
+      final id = (notification['_id'] ?? '').toString();
+      final key = id.isNotEmpty
+          ? id
+          : '${notification['title']}|${notification['message']}|${notification['createdAt']}';
+
+      if (key.isEmpty || seenKeys.contains(key)) {
+        continue;
+      }
+
+      seenKeys.add(key);
+      dedupedNotifications.add(notification);
+    }
+
+    return dedupedNotifications;
+  }
+
+  Map<String, dynamic> _normalizeNotification(dynamic rawNotification) {
+    if (rawNotification is! Map) {
+      return const <String, dynamic>{};
+    }
+
+    final notification = Map<String, dynamic>.from(rawNotification);
+    final nested = notification['notification'] is Map
+        ? Map<String, dynamic>.from(notification['notification'] as Map)
+        : const <String, dynamic>{};
+    final data = notification['data'] is Map
+        ? Map<String, dynamic>.from(notification['data'] as Map)
+        : const <String, dynamic>{};
+
+    return {
+      ...notification,
+      '_id':
+          notification['_id']?.toString() ??
+          notification['id']?.toString() ??
+          data['notificationId']?.toString() ??
+          '',
+      'title':
+          notification['title']?.toString() ??
+          nested['title']?.toString() ??
+          data['title']?.toString() ??
+          '',
+      'message':
+          notification['message']?.toString() ??
+          notification['body']?.toString() ??
+          nested['body']?.toString() ??
+          data['message']?.toString() ??
+          data['body']?.toString() ??
+          '',
+      'type':
+          notification['type']?.toString() ??
+          data['type']?.toString() ??
+          'system',
+      'isRead': notification['isRead'] == true || notification['read'] == true,
+      'createdAt':
+          notification['createdAt']?.toString() ??
+          notification['timestamp']?.toString() ??
+          data['timestamp']?.toString() ??
+          '',
+      'data': data,
+    };
   }
 
   String _formatTimeAgo(String timestamp) {

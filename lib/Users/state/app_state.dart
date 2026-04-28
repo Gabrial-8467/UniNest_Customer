@@ -9,7 +9,7 @@ import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../utils/utils.dart';
 
-class CampusAppState extends ChangeNotifier {
+class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
   CampusAppState() {
     // DEBUG: Clear cart storage on startup to remove ghost items
     // Comment out the next line after debugging
@@ -20,6 +20,9 @@ class CampusAppState extends ChangeNotifier {
     _startStatusUpdateTimer();
     _initializeBackendData();
     startNotificationPolling();
+    _startCanteenStatusPolling();
+    // Register for app lifecycle events
+    WidgetsBinding.instance.addObserver(this);
   }
 
   // DEBUG: Method to completely wipe cart storage
@@ -37,15 +40,74 @@ class CampusAppState extends ChangeNotifier {
   void dispose() {
     _statusUpdateTimer?.cancel();
     _notificationTimer?.cancel();
+    _canteenStatusTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  // Start periodic notification count fetch
+  // App lifecycle state tracking
+  AppLifecycleState? _lastLifecycleState;
+  bool get isAppInBackground =>
+      _lastLifecycleState == AppLifecycleState.paused ||
+      _lastLifecycleState == AppLifecycleState.inactive ||
+      _lastLifecycleState == AppLifecycleState.hidden;
+
+  // Optimized polling intervals
+  static const Duration _canteenPollingInterval = Duration(
+    minutes: 2,
+  ); // Was 30 seconds
+  static const Duration _notificationPollingInterval = Duration(
+    minutes: 5,
+  ); // Was 1 minute
+  static const Duration _statusUpdateInterval = Duration(
+    minutes: 1,
+  ); // For order status
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lastLifecycleState = state;
+
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        // App is going to background - pause polling to save server resources
+        _pausePolling();
+        debugPrint('📱 App in background - polling paused');
+        break;
+      case AppLifecycleState.resumed:
+        // App is back in foreground - resume polling with refresh
+        _resumePolling();
+        debugPrint('📱 App resumed - polling resumed');
+        break;
+      case AppLifecycleState.detached:
+        // App is being terminated - cleanup
+        _pausePolling();
+        break;
+    }
+  }
+
+  void _pausePolling() {
+    _canteenStatusTimer?.cancel();
+    _notificationTimer?.cancel();
+    _statusUpdateTimer?.cancel();
+  }
+
+  void _resumePolling() {
+    // Refresh data when app comes to foreground (with cache, this is cheap)
+    refreshAllData();
+    // Restart polling timers
+    _startCanteenStatusPolling();
+    startNotificationPolling();
+    _startStatusUpdateTimer();
+  }
+
+  // Start periodic notification count fetch with optimized interval (5 minutes)
   void startNotificationPolling() {
     _notificationTimer?.cancel();
     _fetchUnreadNotificationCount();
     _notificationTimer = Timer.periodic(
-      const Duration(minutes: 1),
+      _notificationPollingInterval,
       (_) => _fetchUnreadNotificationCount(),
     );
   }
@@ -140,6 +202,7 @@ class CampusAppState extends ChangeNotifier {
   final List<Map<String, dynamic>> _orderHistory = [];
   Timer? _statusUpdateTimer;
   Timer? _notificationTimer;
+  Timer? _canteenStatusTimer;
 
   // Track orders currently being updated to prevent duplicate calls
   final Set<String> _updatingOrderIds = {};
@@ -213,25 +276,37 @@ class CampusAppState extends ChangeNotifier {
     await _loadBackendOrders();
   }
 
-  // Fetch products from backend API (all pages)
+  // Maximum pages to fetch to prevent overwhelming the server
+  static const int _maxProductPages = 10; // Limit to 500 products max
+  static const int _productsPageSize = 50; // Reduced from 100
+  static const Duration _pageFetchDelay = Duration(
+    milliseconds: 100,
+  ); // Small delay between pages
+
+  // Fetch products from backend API with optimizations
   Future<void> _fetchProductsFromBackend() async {
     _isLoadingProducts = true;
     notifyListeners();
 
     try {
-      debugPrint('🔍 AppState: Fetching all products from backend...');
+      debugPrint('🔍 AppState: Fetching products from backend...');
       final token = await AuthService.getToken();
       _products.clear();
 
       int page = 1;
-      const int limit = 100;
       bool hasMorePages = true;
 
-      while (hasMorePages) {
+      while (hasMorePages && page <= _maxProductPages) {
+        // Stop fetching if app goes to background
+        if (isAppInBackground) {
+          debugPrint('⏸️ App in background, pausing product fetch');
+          break;
+        }
+
         final response = await ApiService.getProducts(
           token: token,
           page: page,
-          limit: limit,
+          limit: _productsPageSize,
         );
 
         if (response['success'] == true) {
@@ -310,10 +385,12 @@ class CampusAppState extends ChangeNotifier {
               ? (pagination['pages'] as num?)?.toInt() ?? 1
               : 1;
 
-          if (page >= totalPages || productsData.length < limit) {
+          if (page >= totalPages || productsData.length < _productsPageSize) {
             hasMorePages = false;
           } else {
             page++;
+            // Small delay between page fetches to avoid overwhelming the server
+            await Future.delayed(_pageFetchDelay);
           }
         } else {
           debugPrint(
@@ -346,6 +423,13 @@ class CampusAppState extends ChangeNotifier {
   // Public method to refresh canteens
   Future<void> refreshCanteens() async {
     await _fetchCanteensFromBackend();
+  }
+
+  void _startCanteenStatusPolling() {
+    _canteenStatusTimer?.cancel();
+    _canteenStatusTimer = Timer.periodic(_canteenPollingInterval, (_) {
+      _fetchCanteensFromBackend(silent: true);
+    });
   }
 
   // Public method to refresh all data
@@ -382,9 +466,10 @@ class CampusAppState extends ChangeNotifier {
       debugPrint('🔍 AppState: Fetching categories from backend...');
 
       // Extract categories from products since there's no separate categories endpoint
-      if (_products.isNotEmpty) {
+      final visibleProducts = _products.where(_isProductFromOpenCanteen);
+      if (visibleProducts.isNotEmpty) {
         final Set<String> uniqueCategories = {};
-        for (final product in _products) {
+        for (final product in visibleProducts) {
           final category = (product['category'] ?? '').toString();
           if (category.isNotEmpty) {
             uniqueCategories.add(category);
@@ -441,13 +526,15 @@ class CampusAppState extends ChangeNotifier {
   }
 
   // Fetch canteens from backend API
-  Future<void> _fetchCanteensFromBackend() async {
-    _isLoadingCanteens = true;
-    notifyListeners();
+  Future<void> _fetchCanteensFromBackend({bool silent = false}) async {
+    if (!silent) {
+      _isLoadingCanteens = true;
+      notifyListeners();
 
-    _hasConnectionError = false;
-    _errorMessage = '';
-    notifyListeners();
+      _hasConnectionError = false;
+      _errorMessage = '';
+      notifyListeners();
+    }
 
     try {
       debugPrint('🔍 AppState: Fetching canteens from backend...');
@@ -460,7 +547,7 @@ class CampusAppState extends ChangeNotifier {
         final List<dynamic> vendorsData = data is Map<String, dynamic>
             ? (data['vendors'] as List<dynamic>? ?? const [])
             : (data as List<dynamic>? ?? const []);
-        _canteens.clear();
+        final updatedCanteens = <Map<String, dynamic>>[];
 
         for (final vendor in vendorsData) {
           if (vendor is Map<String, dynamic>) {
@@ -484,7 +571,7 @@ class CampusAppState extends ChangeNotifier {
               'reviewCount': rating is Map<String, dynamic>
                   ? (rating['count'] as num?)?.toInt() ?? 0
                   : (vendor['reviewCount'] as num?)?.toInt() ?? 0,
-              'isOpen': vendor['status'] == 'active',
+              'isOpen': _resolveVendorIsOpen(vendor),
               'imageUrl': user is Map<String, dynamic>
                   ? (user['avatar'] ?? '')
                   : (vendor['image'] ?? vendor['imageUrl'] ?? ''),
@@ -492,30 +579,57 @@ class CampusAppState extends ChangeNotifier {
               'openingTime': '08:00',
               'closingTime': '20:00',
             };
-            _canteens.add(appCanteen);
+            updatedCanteens.add(appCanteen);
           }
         }
+
+        final hasStatusChange =
+            _buildCanteenStatusFingerprint(_canteens) !=
+            _buildCanteenStatusFingerprint(updatedCanteens);
+
+        _canteens
+          ..clear()
+          ..addAll(updatedCanteens);
 
         debugPrint(
           '✅ AppState: Loaded ${_canteens.length} canteens from backend',
         );
         _hasConnectionError = false;
         _errorMessage = '';
+        if (silent && hasStatusChange) {
+          notifyListeners();
+        }
       } else {
         debugPrint(
           '❌ AppState: Failed to fetch canteens: ${response['error']}',
         );
-        _hasConnectionError = true;
-        _errorMessage = response['error'] ?? 'Failed to load canteens';
+        if (!silent) {
+          _hasConnectionError = true;
+          _errorMessage = response['error'] ?? 'Failed to load canteens';
+        }
       }
     } catch (e) {
       debugPrint('💥 AppState: Error fetching canteens: $e');
-      _hasConnectionError = true;
-      _errorMessage = 'Failed to load canteens from backend';
+      if (!silent) {
+        _hasConnectionError = true;
+        _errorMessage = 'Failed to load canteens from backend';
+      }
     } finally {
-      _isLoadingCanteens = false;
-      notifyListeners();
+      if (!silent) {
+        _isLoadingCanteens = false;
+        notifyListeners();
+      }
     }
+  }
+
+  String _buildCanteenStatusFingerprint(List<Map<String, dynamic>> canteens) {
+    return canteens
+        .map((canteen) {
+          final id = (canteen['id'] ?? '').toString();
+          final isOpen = canteen['isOpen'] == true;
+          return '$id:$isOpen';
+        })
+        .join('|');
   }
 
   // Load user orders from backend and sync with local state
@@ -545,7 +659,7 @@ class CampusAppState extends ChangeNotifier {
       UnmodifiableListView(_canteens);
 
   UnmodifiableListView<Map<String, dynamic>> get products =>
-      UnmodifiableListView(_products);
+      UnmodifiableListView(_products.where(_isProductFromOpenCanteen));
 
   UnmodifiableListView<String> get categories =>
       UnmodifiableListView(_categories);
@@ -573,6 +687,7 @@ class CampusAppState extends ChangeNotifier {
   double get total => subtotal + deliveryFee + platformFee + tax;
 
   List<Map<String, dynamic>> get favoriteProducts => _products
+      .where(_isProductFromOpenCanteen)
       .where((product) => product['isFavorite'] == true)
       .map((product) => Map<String, dynamic>.from(product))
       .toList();
@@ -581,6 +696,7 @@ class CampusAppState extends ChangeNotifier {
 
   List<Map<String, dynamic>> productsByCanteen(String canteenId) => _products
       .where((product) => product['canteenId'] == canteenId)
+      .where(_isProductFromOpenCanteen)
       .map((product) => Map<String, dynamic>.from(product))
       .toList();
 
@@ -596,7 +712,117 @@ class CampusAppState extends ChangeNotifier {
   Map<String, dynamic>? getProductById(String productId) {
     for (final product in _products) {
       if (product['id'] == productId) {
+        if (!_isProductFromOpenCanteen(product)) {
+          return null;
+        }
         return Map<String, dynamic>.from(product);
+      }
+    }
+    return null;
+  }
+
+  bool _isProductFromOpenCanteen(Map<String, dynamic> product) {
+    final canteenId = (product['canteenId'] ?? '').toString();
+    if (canteenId.isNotEmpty) {
+      for (final canteen in _canteens) {
+        if (canteen['id'] == canteenId) {
+          return canteen['isOpen'] == true;
+        }
+      }
+    }
+
+    final vendor = product['vendor'];
+    if (vendor is Map<String, dynamic>) {
+      return _resolveVendorIsOpen(vendor);
+    }
+
+    return true;
+  }
+
+  bool _resolveVendorIsOpen(Map<String, dynamic> vendor) {
+    final explicitOpen = _readBoolField(vendor, const [
+      'isOpen',
+      'is_open',
+      'open',
+      'isCurrentlyOpen',
+      'currentlyOpen',
+      'isAvailable',
+      'available',
+      'isAcceptingOrders',
+      'acceptingOrders',
+      'canteenOpen',
+    ]);
+    if (explicitOpen != null) return explicitOpen;
+
+    final businessDetails = vendor['businessDetails'];
+    if (businessDetails is Map<String, dynamic>) {
+      final businessOpen = _readBoolField(businessDetails, const [
+        'isOpen',
+        'isAvailable',
+        'isAcceptingOrders',
+        'acceptingOrders',
+        'canteenOpen',
+      ]);
+      if (businessOpen != null) return businessOpen;
+    }
+
+    final explicitClosed = _readBoolField(vendor, const [
+      'isClosed',
+      'closed',
+      'isCurrentlyClosed',
+      'currentlyClosed',
+    ]);
+    if (explicitClosed != null) return !explicitClosed;
+
+    final status = vendor['status']?.toString().trim().toLowerCase();
+    if (status != null && status.isNotEmpty) {
+      if (const {
+        'closed',
+        'inactive',
+        'disabled',
+        'offline',
+        'unavailable',
+        'temporarily_closed',
+        'temporarily closed',
+      }.contains(status)) {
+        return false;
+      }
+
+      if (const {'open', 'online', 'available'}.contains(status)) {
+        return true;
+      }
+    }
+
+    return true;
+  }
+
+  bool? _readBoolField(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (const {
+          'true',
+          '1',
+          'yes',
+          'open',
+          'available',
+          'online',
+        }.contains(normalized)) {
+          return true;
+        }
+        if (const {
+          'false',
+          '0',
+          'no',
+          'closed',
+          'unavailable',
+          'offline',
+        }.contains(normalized)) {
+          return false;
+        }
       }
     }
     return null;
@@ -641,6 +867,11 @@ class CampusAppState extends ChangeNotifier {
     final product = _getProductRef(productId);
     if (product == null) {
       debugPrint('❌ Product not found for id: $productId');
+      return false;
+    }
+
+    if (!_isProductFromOpenCanteen(product)) {
+      debugPrint('Canteen is closed for product id: $productId');
       return false;
     }
 
@@ -1297,9 +1528,10 @@ class CampusAppState extends ChangeNotifier {
     }
   }
 
-  // Poll for order status updates from backend every 30 seconds
+  // Poll for order status updates from backend with optimized interval (1 minute)
   void _startStatusUpdateTimer() {
-    _statusUpdateTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _statusUpdateTimer?.cancel();
+    _statusUpdateTimer = Timer.periodic(_statusUpdateInterval, (timer) {
       _pollOrderStatusUpdates();
     });
   }

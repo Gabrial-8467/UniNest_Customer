@@ -83,6 +83,7 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
         } catch (e) {
           canteen = <String, dynamic>{};
         }
+        final isCanteenOpen = canteen.isEmpty || canteen['isOpen'] == true;
         final products = appState.productsByCanteen(widget.canteenId);
         final filtered = _filteredProducts(products);
 
@@ -107,42 +108,47 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
             child: Column(
               children: [
                 _buildCanteenHeader(canteen),
-                _buildCategories(),
-                if (selectedCategory == 'All')
-                  _buildFeaturedProductsSection(appState),
-                filtered.isEmpty
-                    ? _buildEmptyState()
-                    : Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: ProductGrid(
-                          products: filtered,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          onProductTap: (productId) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    ProductDetailsScreen(productId: productId),
-                              ),
-                            );
-                          },
-                          onFavoriteToggle: (productId, isFavorite) {
-                            appState.setFavorite(productId, isFavorite);
-                          },
-                          onAddToCart: (productId) {
-                            final added = appState.addToCart(productId);
-                            if (added) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Added to cart'),
-                                  backgroundColor: Color(0xFFFF6B6B),
+                if (!isCanteenOpen)
+                  _buildClosedCanteenNotice(canteen)
+                else ...[
+                  _buildCategories(),
+                  if (selectedCategory == 'All')
+                    _buildFeaturedProductsSection(appState),
+                  filtered.isEmpty
+                      ? _buildEmptyState()
+                      : Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          child: ProductGrid(
+                            products: filtered,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            onProductTap: (productId) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProductDetailsScreen(
+                                    productId: productId,
+                                  ),
                                 ),
                               );
-                            }
-                          },
+                            },
+                            onFavoriteToggle: (productId, isFavorite) {
+                              appState.setFavorite(productId, isFavorite);
+                            },
+                            onAddToCart: (productId) {
+                              final added = appState.addToCart(productId);
+                              if (added) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Added to cart'),
+                                    backgroundColor: Color(0xFFFF6B6B),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
                         ),
-                      ),
+                ],
               ],
             ),
           ),
@@ -297,6 +303,166 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
     );
   }
 
+  Widget _buildClosedCanteenNotice(Map<String, dynamic>? canteen) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.storefront_outlined,
+              color: Colors.red,
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '${canteen?['name'] ?? 'This canteen'} is closed',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2D3436),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Menu items will be available when the canteen opens again.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isFeaturedProductVisible(
+    Map<dynamic, dynamic> product,
+    CampusAppState appState,
+  ) {
+    final canteen = appState.getCanteenById(widget.canteenId);
+    if (canteen != null) {
+      return canteen['isOpen'] == true;
+    }
+
+    final vendor = product['vendor'];
+    if (vendor is Map) {
+      return _isVendorOpen(vendor);
+    }
+
+    return true;
+  }
+
+  bool _isVendorOpen(Map<dynamic, dynamic> vendor) {
+    final explicitOpen = _readBoolField(vendor, const [
+      'isOpen',
+      'is_open',
+      'open',
+      'isCurrentlyOpen',
+      'currentlyOpen',
+      'isAvailable',
+      'available',
+      'isAcceptingOrders',
+      'acceptingOrders',
+      'canteenOpen',
+    ]);
+    if (explicitOpen != null) return explicitOpen;
+
+    final businessDetails = vendor['businessDetails'];
+    if (businessDetails is Map) {
+      final businessOpen = _readBoolField(businessDetails, const [
+        'isOpen',
+        'isAvailable',
+        'isAcceptingOrders',
+        'acceptingOrders',
+        'canteenOpen',
+      ]);
+      if (businessOpen != null) return businessOpen;
+    }
+
+    final explicitClosed = _readBoolField(vendor, const [
+      'isClosed',
+      'closed',
+      'isCurrentlyClosed',
+      'currentlyClosed',
+    ]);
+    if (explicitClosed != null) return !explicitClosed;
+
+    final status = vendor['status']?.toString().trim().toLowerCase();
+    if (status != null && status.isNotEmpty) {
+      if (const {
+        'closed',
+        'inactive',
+        'disabled',
+        'offline',
+        'unavailable',
+        'temporarily_closed',
+        'temporarily closed',
+      }.contains(status)) {
+        return false;
+      }
+      if (const {'open', 'online', 'available'}.contains(status)) return true;
+    }
+
+    return true;
+  }
+
+  bool? _readBoolField(Map<dynamic, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (const {
+          'true',
+          '1',
+          'yes',
+          'open',
+          'available',
+          'online',
+        }.contains(normalized)) {
+          return true;
+        }
+        if (const {
+          'false',
+          '0',
+          'no',
+          'closed',
+          'unavailable',
+          'offline',
+        }.contains(normalized)) {
+          return false;
+        }
+      }
+    }
+    return null;
+  }
+
   Widget _buildFeaturedProductsSection(CampusAppState appState) {
     return FutureBuilder<Map<String, dynamic>>(
       future: _featuredProductsFuture,
@@ -322,7 +488,8 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
         // Filter only featured products
         final List<dynamic> featuredProducts = allProducts.where((p) {
           if (p is! Map) return false;
-          return p['isFeatured'] == true || p['featured'] == true;
+          final isFeatured = p['isFeatured'] == true || p['featured'] == true;
+          return isFeatured && _isFeaturedProductVisible(p, appState);
         }).toList();
 
         if (featuredProducts.isEmpty) {

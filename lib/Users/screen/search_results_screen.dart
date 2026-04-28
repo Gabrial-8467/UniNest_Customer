@@ -64,6 +64,111 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     return 0.0;
   }
 
+  bool _isVendorOpen(Map<dynamic, dynamic> vendor) {
+    final explicitOpen = _readBoolField(vendor, const [
+      'isOpen',
+      'is_open',
+      'open',
+      'isCurrentlyOpen',
+      'currentlyOpen',
+      'isAvailable',
+      'available',
+      'isAcceptingOrders',
+      'acceptingOrders',
+      'canteenOpen',
+    ]);
+    if (explicitOpen != null) return explicitOpen;
+
+    final businessDetails = vendor['businessDetails'];
+    if (businessDetails is Map) {
+      final businessOpen = _readBoolField(businessDetails, const [
+        'isOpen',
+        'isAvailable',
+        'isAcceptingOrders',
+        'acceptingOrders',
+        'canteenOpen',
+      ]);
+      if (businessOpen != null) return businessOpen;
+    }
+
+    final explicitClosed = _readBoolField(vendor, const [
+      'isClosed',
+      'closed',
+      'isCurrentlyClosed',
+      'currentlyClosed',
+    ]);
+    if (explicitClosed != null) return !explicitClosed;
+
+    final status = vendor['status']?.toString().trim().toLowerCase();
+    if (status != null && status.isNotEmpty) {
+      if (const {
+        'closed',
+        'inactive',
+        'disabled',
+        'offline',
+        'unavailable',
+        'temporarily_closed',
+        'temporarily closed',
+      }.contains(status)) {
+        return false;
+      }
+      if (const {'open', 'online', 'available'}.contains(status)) return true;
+    }
+
+    return true;
+  }
+
+  bool? _readBoolField(Map<dynamic, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (const {
+          'true',
+          '1',
+          'yes',
+          'open',
+          'available',
+          'online',
+        }.contains(normalized)) {
+          return true;
+        }
+        if (const {
+          'false',
+          '0',
+          'no',
+          'closed',
+          'unavailable',
+          'offline',
+        }.contains(normalized)) {
+          return false;
+        }
+      }
+    }
+    return null;
+  }
+
+  bool _isProductFromOpenVendor(Map<String, dynamic> product) {
+    final vendor = product['vendor'];
+    if (vendor is Map) {
+      return _isVendorOpen(vendor);
+    }
+
+    final isOpen = product['isCanteenOpen'] ?? product['vendorIsOpen'];
+    if (isOpen is bool) return isOpen;
+
+    final status = (product['vendorStatus'] ?? product['status'])
+        ?.toString()
+        .toLowerCase();
+    if (status != null && status.isNotEmpty) {
+      return status == 'active' || status == 'open';
+    }
+
+    return true;
+  }
+
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
       setState(() {
@@ -124,7 +229,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         }
 
         setState(() {
-          _searchResults = products.cast<Map<String, dynamic>>();
+          _searchResults = products
+              .cast<Map<String, dynamic>>()
+              .where(_isProductFromOpenVendor)
+              .toList();
           _vendors = vendors.cast<Map<String, dynamic>>();
 
           // Sort products by rating (highest first)
@@ -326,6 +434,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           .toString();
                   final rating = (vendor['rating']?['average'] ?? 0.0)
                       .toDouble();
+                  final isOpen = _isVendorOpen(vendor);
 
                   return Padding(
                     padding: const EdgeInsets.only(right: 12),
@@ -382,6 +491,31 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                                   style: TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 12,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        (isOpen
+                                                ? AppColors.success
+                                                : AppColors.error)
+                                            .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    isOpen ? 'Open' : 'Closed',
+                                    style: TextStyle(
+                                      color: isOpen
+                                          ? AppColors.success
+                                          : AppColors.error,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                               ],

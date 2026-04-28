@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../firebase_options.dart';
@@ -11,6 +12,8 @@ class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   static final StreamController<Map<String, dynamic>> _notificationController =
       StreamController<Map<String, dynamic>>.broadcast();
+  static const String _cachedNotificationsKey =
+      'cached_foreground_notifications';
 
   static Stream<Map<String, dynamic>> get onNotification =>
       _notificationController.stream;
@@ -73,7 +76,14 @@ class NotificationService {
       debugPrint('Body empty: ${body.isEmpty}');
 
       // Broadcast notification to UI
+      final notificationId =
+          message.data['notificationId']?.toString() ??
+          message.data['_id']?.toString() ??
+          message.data['id']?.toString() ??
+          message.messageId ??
+          DateTime.now().millisecondsSinceEpoch.toString();
       final notificationData = {
+        'notificationId': notificationId,
         'title': title,
         'body': body,
         'data': message.data,
@@ -81,6 +91,7 @@ class NotificationService {
       };
 
       debugPrint('Broadcasting notification: $notificationData');
+      unawaited(_cacheForegroundNotification(notificationData));
       _notificationController.add(notificationData);
       debugPrint('=== END NOTIFICATION DEBUG ===');
     });
@@ -125,6 +136,106 @@ class NotificationService {
       }
     } catch (e) {
       debugPrint('Error registering FCM token: $e');
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getCachedNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawNotifications =
+          prefs.getStringList(_cachedNotificationsKey) ?? const <String>[];
+
+      return rawNotifications
+          .map((rawNotification) => jsonDecode(rawNotification))
+          .whereType<Map>()
+          .map((notification) => Map<String, dynamic>.from(notification))
+          .toList();
+    } catch (e) {
+      debugPrint('Error reading cached notifications: $e');
+      return const [];
+    }
+  }
+
+  static Future<void> clearCachedNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cachedNotificationsKey);
+    } catch (e) {
+      debugPrint('Error clearing cached notifications: $e');
+    }
+  }
+
+  static Future<void> markCachedNotificationRead(String notificationId) async {
+    if (notificationId.isEmpty) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedNotifications = await getCachedNotifications();
+      final updatedNotifications = cachedNotifications
+          .map((notification) {
+            if ((notification['_id'] ?? '').toString() == notificationId) {
+              return {...notification, 'isRead': true};
+            }
+            return notification;
+          })
+          .map(jsonEncode)
+          .toList();
+
+      await prefs.setStringList(_cachedNotificationsKey, updatedNotifications);
+    } catch (e) {
+      debugPrint('Error marking cached notification as read: $e');
+    }
+  }
+
+  static Future<void> _cacheForegroundNotification(
+    Map<String, dynamic> notificationData,
+  ) async {
+    final title = notificationData['title']?.toString().trim() ?? '';
+    final body =
+        (notificationData['body'] ?? notificationData['message'])
+            ?.toString()
+            .trim() ??
+        '';
+    if (title.isEmpty && body.isEmpty) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedNotifications = await getCachedNotifications();
+      final data = notificationData['data'] is Map
+          ? Map<String, dynamic>.from(notificationData['data'] as Map)
+          : const <String, dynamic>{};
+      final notificationId =
+          notificationData['notificationId']?.toString() ??
+          notificationData['id']?.toString() ??
+          data['notificationId']?.toString() ??
+          data['_id']?.toString() ??
+          data['id']?.toString() ??
+          DateTime.now().millisecondsSinceEpoch.toString();
+
+      final notification = {
+        '_id': notificationId,
+        'title': title,
+        'message': body,
+        'type':
+            notificationData['type']?.toString() ??
+            data['type']?.toString() ??
+            'system',
+        'isRead': false,
+        'createdAt':
+            notificationData['timestamp']?.toString() ??
+            DateTime.now().toIso8601String(),
+        'data': data,
+      };
+      final mergedNotifications = [
+        notification,
+        ...cachedNotifications.where(
+          (cached) => (cached['_id'] ?? '').toString() != notificationId,
+        ),
+      ].take(50).map(jsonEncode).toList();
+
+      await prefs.setStringList(_cachedNotificationsKey, mergedNotifications);
+    } catch (e) {
+      debugPrint('Error caching foreground notification: $e');
     }
   }
 

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../config/api_endpoints.dart';
 import 'auth_service.dart';
+import 'request_cache_service.dart';
 
 class ApiService {
   static String get _baseUrl => AppConfig.getPublicApiBaseUrl();
@@ -24,7 +25,7 @@ class ApiService {
     return headers;
   }
 
-  // Helper method for HTTP requests
+  // Helper method for HTTP requests with caching support
   static Future<Map<String, dynamic>> _makeRequest({
     required String method,
     required String endpoint,
@@ -32,6 +33,8 @@ class ApiService {
     String? token,
     Map<String, String>? queryParams,
     bool usePublicBaseUrl = false,
+    bool skipCache = false,
+    bool deduplicate = true,
   }) async {
     try {
       final uri = _buildUri(
@@ -43,18 +46,22 @@ class ApiService {
       debugPrint('🔍 API Request: $method $uri');
       if (body != null) {
         debugPrint('📤 Request Body (Map): ${_sanitizeLogData(body)}');
-        debugPrint(
-          '📤 Request Body (JSON): ${jsonEncode(_sanitizeLogData(body))}',
-        );
       }
 
       http.Response response;
 
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await http
-              .get(uri, headers: _getHeaders(token: token))
-              .timeout(AppConfig.connectionTimeout);
+          // Use cached request for GET calls
+          response = await RequestCacheService().execute(
+            requestFn: () => http
+                .get(uri, headers: _getHeaders(token: token))
+                .timeout(AppConfig.connectionTimeout),
+            method: 'GET',
+            uri: uri,
+            skipCache: skipCache,
+            deduplicate: deduplicate,
+          );
           break;
         case 'POST':
           response = await http

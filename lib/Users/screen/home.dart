@@ -24,7 +24,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String selectedCategory = 'All';
   String selectedCanteenId = 'All';
 
@@ -37,6 +37,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _lastSelectedCategory = '';
   int _lastProductCount = 0;
   int _lastCanteenCount = 0;
+  String _lastCanteenFingerprint = '';
+  String _lastProductFingerprint = '';
 
   // Active order toast variables
   bool _showOrderToast = false;
@@ -45,9 +47,18 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _orderVendorName;
   Timer? _toastTimer;
 
+  // Polling optimization
+  int _pollingAttemptCount = 0;
+  static const int _maxPollingAttempts = 30; // Stop after 30 minutes of polling
+  static const Duration _orderPollingInterval = Duration(
+    minutes: 1,
+  ); // Was 30 seconds
+
   @override
   void initState() {
     super.initState();
+    // Register for lifecycle events
+    WidgetsBinding.instance.addObserver(this);
     // Initialize cached future for featured products
     _featuredProductsFuture = _fetchFeaturedProducts();
     // Check for active orders when home screen loads
@@ -59,7 +70,23 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _toastTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      // Pause polling when app goes to background
+      _toastTimer?.cancel();
+    } else if (state == AppLifecycleState.resumed && _activeOrderId != null) {
+      // Resume polling when app comes back if there's an active order
+      if (_showOrderToast && _activeOrderId != null) {
+        _startOrderStatusPolling(_activeOrderId!);
+      }
+    }
   }
 
   // Check for active orders and show toast if found
@@ -268,7 +295,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _startOrderStatusPolling(String orderId) {
     _toastTimer?.cancel();
-    _toastTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+    _pollingAttemptCount = 0;
+
+    _toastTimer = Timer.periodic(_orderPollingInterval, (timer) async {
+      // Check max attempts to prevent indefinite polling
+      _pollingAttemptCount++;
+      if (_pollingAttemptCount >= _maxPollingAttempts) {
+        debugPrint('⏹️ Max polling attempts reached, stopping order polling');
+        timer.cancel();
+        return;
+      }
+
       if (!mounted) {
         timer.cancel();
         return;
@@ -445,6 +482,135 @@ class _HomeScreenState extends State<HomeScreen> {
     return 0.0;
   }
 
+  bool _isProductFromOpenCanteen(
+    Map<dynamic, dynamic> product,
+    CampusAppState appState,
+  ) {
+    final vendor = product['vendor'];
+    final canteenId = vendor is Map
+        ? (vendor['_id'] ?? vendor['id'] ?? '').toString()
+        : (product['canteenId'] ?? product['vendorId'] ?? '').toString();
+
+    if (canteenId.isNotEmpty) {
+      final canteen = appState.getCanteenById(canteenId);
+      if (canteen != null) {
+        return canteen['isOpen'] == true;
+      }
+    }
+
+    if (vendor is Map) {
+      return _isVendorOpen(vendor);
+    }
+
+    return true;
+  }
+
+  bool _isVendorOpen(Map<dynamic, dynamic> vendor) {
+    final explicitOpen = _readBoolField(vendor, const [
+      'isOpen',
+      'is_open',
+      'open',
+      'isCurrentlyOpen',
+      'currentlyOpen',
+      'isAvailable',
+      'available',
+      'isAcceptingOrders',
+      'acceptingOrders',
+      'canteenOpen',
+    ]);
+    if (explicitOpen != null) return explicitOpen;
+
+    final businessDetails = vendor['businessDetails'];
+    if (businessDetails is Map) {
+      final businessOpen = _readBoolField(businessDetails, const [
+        'isOpen',
+        'isAvailable',
+        'isAcceptingOrders',
+        'acceptingOrders',
+        'canteenOpen',
+      ]);
+      if (businessOpen != null) return businessOpen;
+    }
+
+    final explicitClosed = _readBoolField(vendor, const [
+      'isClosed',
+      'closed',
+      'isCurrentlyClosed',
+      'currentlyClosed',
+    ]);
+    if (explicitClosed != null) return !explicitClosed;
+
+    final status = vendor['status']?.toString().trim().toLowerCase();
+    if (status != null && status.isNotEmpty) {
+      if (const {
+        'closed',
+        'inactive',
+        'disabled',
+        'offline',
+        'unavailable',
+        'temporarily_closed',
+        'temporarily closed',
+      }.contains(status)) {
+        return false;
+      }
+      if (const {'open', 'online', 'available'}.contains(status)) return true;
+    }
+
+    return true;
+  }
+
+  bool? _readBoolField(Map<dynamic, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (const {
+          'true',
+          '1',
+          'yes',
+          'open',
+          'available',
+          'online',
+        }.contains(normalized)) {
+          return true;
+        }
+        if (const {
+          'false',
+          '0',
+          'no',
+          'closed',
+          'unavailable',
+          'offline',
+        }.contains(normalized)) {
+          return false;
+        }
+      }
+    }
+    return null;
+  }
+
+  String _canteenFingerprint(List<Map<String, dynamic>> canteens) {
+    return canteens
+        .map((canteen) {
+          final id = (canteen['id'] ?? '').toString();
+          final isOpen = canteen['isOpen'] == true;
+          return '$id:$isOpen';
+        })
+        .join('|');
+  }
+
+  String _productFingerprint(List<Map<String, dynamic>> products) {
+    return products
+        .map((product) {
+          final id = (product['id'] ?? '').toString();
+          final canteenId = (product['canteenId'] ?? '').toString();
+          return '$id:$canteenId';
+        })
+        .join('|');
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = AppStateScope.of(context);
@@ -454,26 +620,32 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, _) {
         final allCanteens = appState.canteens.toList();
         final allProducts = appState.products.toList();
+        final canteenFingerprint = _canteenFingerprint(allCanteens);
+        final productFingerprint = _productFingerprint(allProducts);
 
         // Use memoized results if inputs haven't changed
         final bool shouldRecalculateCanteens =
             _cachedFilteredCanteens == null ||
-            _lastCanteenCount != allCanteens.length;
+            _lastCanteenCount != allCanteens.length ||
+            _lastCanteenFingerprint != canteenFingerprint;
 
         final bool shouldRecalculateProducts =
             _cachedFilteredProducts == null ||
             _lastSelectedCategory != selectedCategory ||
-            _lastProductCount != allProducts.length;
+            _lastProductCount != allProducts.length ||
+            _lastProductFingerprint != productFingerprint;
 
         if (shouldRecalculateCanteens) {
           _cachedFilteredCanteens = _filteredCanteens(allCanteens);
           _lastCanteenCount = allCanteens.length;
+          _lastCanteenFingerprint = canteenFingerprint;
         }
 
         if (shouldRecalculateProducts) {
           _cachedFilteredProducts = _filteredProducts(allProducts, allCanteens);
           _lastSelectedCategory = selectedCategory;
           _lastProductCount = allProducts.length;
+          _lastProductFingerprint = productFingerprint;
         }
 
         final canteens = _cachedFilteredCanteens!.take(4).toList();
@@ -741,7 +913,8 @@ class _HomeScreenState extends State<HomeScreen> {
         // Filter only featured products
         final List<dynamic> featuredProducts = allProducts.where((p) {
           if (p is! Map) return false;
-          return p['isFeatured'] == true || p['featured'] == true;
+          final isFeatured = p['isFeatured'] == true || p['featured'] == true;
+          return isFeatured && _isProductFromOpenCanteen(p, appState);
         }).toList();
 
         if (featuredProducts.isEmpty) {
