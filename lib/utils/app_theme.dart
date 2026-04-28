@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// App Color Scheme
 /// Primary: Red, Secondary: Red variants, Accent: Yellow (warning only)
@@ -34,12 +35,13 @@ class AppColors {
   static const Color info = Color(0xFFE53935); // Red instead of blue
 }
 
-/// App Theme Data
+/// App Theme Data with DM Sans Font
 class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: 'DMSans',
 
       // Color Scheme
       colorScheme: const ColorScheme(
@@ -171,53 +173,55 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
 
-      // Text Theme
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.bold,
+      // Text Theme with DM Sans Font
+      textTheme: GoogleFonts.dmSansTextTheme(
+        const TextTheme(
+          displayLarge: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+          displayMedium: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+          displaySmall: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+          headlineLarge: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+          headlineMedium: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+          headlineSmall: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+          titleLarge: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+          titleMedium: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+          titleSmall: TextStyle(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+          bodyLarge: TextStyle(color: AppColors.textPrimary),
+          bodyMedium: TextStyle(color: AppColors.textPrimary),
+          bodySmall: TextStyle(color: AppColors.textSecondary),
+          labelLarge: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+          labelMedium: TextStyle(color: AppColors.textSecondary),
+          labelSmall: TextStyle(color: AppColors.textLight),
         ),
-        displayMedium: TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.bold,
-        ),
-        displaySmall: TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w600,
-        ),
-        headlineLarge: TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.bold,
-        ),
-        headlineMedium: TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w600,
-        ),
-        headlineSmall: TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w600,
-        ),
-        titleLarge: TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w600,
-        ),
-        titleMedium: TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w500,
-        ),
-        titleSmall: TextStyle(
-          color: AppColors.textSecondary,
-          fontWeight: FontWeight.w500,
-        ),
-        bodyLarge: TextStyle(color: AppColors.textPrimary),
-        bodyMedium: TextStyle(color: AppColors.textPrimary),
-        bodySmall: TextStyle(color: AppColors.textSecondary),
-        labelLarge: TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w500,
-        ),
-        labelMedium: TextStyle(color: AppColors.textSecondary),
-        labelSmall: TextStyle(color: AppColors.textLight),
       ),
 
       // Divider Theme
@@ -252,7 +256,7 @@ class AppTheme {
       // SnackBar Theme
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.textPrimary,
-        contentTextStyle: const TextStyle(color: Colors.white),
+        contentTextStyle: GoogleFonts.dmSans(color: Colors.white),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         behavior: SnackBarBehavior.floating,
       ),
@@ -264,4 +268,43 @@ class AppTheme {
       ),
     );
   }
+}
+
+/// DM Sans Font Helpers - Uses Google Fonts (CDN, no local files needed)
+///
+/// Usage examples:
+/// ```dart
+/// // Quick weight presets
+/// Text('Hello', style: DMSansFont.medium)
+/// Text('Title', style: DMSansFont.bold)
+///
+/// // Custom weight (100-900) with options
+/// Text('Custom', style: DMSansFont.w(650, italic: true, fontSize: 18))
+/// ```
+class DMSansFont {
+  /// Get DM Sans font with specific weight (100-900)
+  static TextStyle w(
+    int weight, {
+    bool italic = false,
+    double? fontSize,
+    Color? color,
+  }) {
+    return GoogleFonts.dmSans(
+      fontSize: fontSize,
+      color: color,
+      fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+      fontWeight: FontWeight.values[(weight ~/ 100).clamp(0, 8)],
+    );
+  }
+
+  /// Quick access to common weights
+  static TextStyle get thin => w(100);
+  static TextStyle get extraLight => w(200);
+  static TextStyle get light => w(300);
+  static TextStyle get regular => w(400);
+  static TextStyle get medium => w(500);
+  static TextStyle get semiBold => w(600);
+  static TextStyle get bold => w(700);
+  static TextStyle get extraBold => w(800);
+  static TextStyle get black => w(900);
 }
