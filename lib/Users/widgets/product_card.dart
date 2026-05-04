@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/utils.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends StatefulWidget {
   final String productId;
   final String name;
   final double price;
@@ -14,10 +14,12 @@ class ProductCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onFavoriteTap;
   final VoidCallback? onAddToCart;
+  final Function(int)? onQuantityChanged;
   final String? discount;
   final bool isNew;
   final String? availability;
   final bool? madeToOrder;
+  final int cartQuantity;
 
   const ProductCard({
     super.key,
@@ -32,10 +34,12 @@ class ProductCard extends StatelessWidget {
     this.onTap,
     this.onFavoriteTap,
     this.onAddToCart,
+    this.onQuantityChanged,
     this.discount,
     this.isNew = false,
     this.availability,
     this.madeToOrder,
+    this.cartQuantity = 0,
   });
 
   bool get canOrder {
@@ -45,6 +49,11 @@ class ProductCard extends StatelessWidget {
     return availability == 'in_stock';
   }
 
+  @override
+  State<ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<ProductCard> {
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -68,7 +77,7 @@ class ProductCard extends StatelessWidget {
         color: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: InkWell(
-          onTap: onTap,
+          onTap: widget.onTap,
           borderRadius: BorderRadius.circular(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -107,7 +116,7 @@ class ProductCard extends StatelessWidget {
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             child: Image.network(
-              imageUrl,
+              widget.imageUrl,
               width: double.infinity,
               fit: BoxFit.cover,
               // Enable HTTP caching for better performance
@@ -160,7 +169,7 @@ class ProductCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (isNew)
+                if (widget.isNew)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -186,7 +195,7 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (discount != null) ...[
+                if (widget.discount != null) ...[
                   const SizedBox(width: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -205,7 +214,7 @@ class ProductCard extends StatelessWidget {
                       ],
                     ),
                     child: Text(
-                      '-$discount%',
+                      '-${widget.discount}%',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 9,
@@ -221,7 +230,7 @@ class ProductCard extends StatelessWidget {
             top: 8,
             left: 8,
             child: GestureDetector(
-              onTap: onFavoriteTap,
+              onTap: widget.onFavoriteTap,
               child: Container(
                 width: 32,
                 height: 32,
@@ -237,9 +246,9 @@ class ProductCard extends StatelessWidget {
                   ],
                 ),
                 child: Icon(
-                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  widget.isFavorite ? Icons.favorite : Icons.favorite_border,
                   size: 16,
-                  color: isFavorite
+                  color: widget.isFavorite
                       ? AppColors.primary
                       : AppColors.textSecondary,
                 ),
@@ -253,7 +262,7 @@ class ProductCard extends StatelessWidget {
 
   Widget _buildHeader() {
     return Text(
-      name,
+      widget.name,
       style: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.bold,
@@ -273,7 +282,7 @@ class ProductCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        canteenName,
+        widget.canteenName,
         style: const TextStyle(
           fontSize: 11,
           color: Color(0xFFFF6B6B),
@@ -286,11 +295,11 @@ class ProductCard extends StatelessWidget {
   }
 
   Widget _buildPriceAndRatingRow() {
-    final hasDiscount = discount != null;
-    final originalPrice = price;
+    final hasDiscount = widget.discount != null;
+    final originalPrice = widget.price;
     final discountedPrice = hasDiscount
-        ? price * (1 - int.parse(discount!) / 100)
-        : price;
+        ? widget.price * (1 - int.parse(widget.discount!) / 100)
+        : widget.price;
 
     return Row(
       children: [
@@ -345,17 +354,17 @@ class ProductCard extends StatelessWidget {
             Icon(Icons.star, size: 14, color: AppColors.accent),
             const SizedBox(width: 2),
             Text(
-              rating.toStringAsFixed(1),
+              widget.rating.toStringAsFixed(1),
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
               ),
             ),
-            if (reviewCount > 0) ...[
+            if (widget.reviewCount > 0) ...[
               const SizedBox(width: 2),
               Text(
-                '($reviewCount)',
+                '(${widget.reviewCount})',
                 style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
               ),
             ],
@@ -366,71 +375,109 @@ class ProductCard extends StatelessWidget {
   }
 
   Widget _buildActions() {
-    return Row(
-      children: [
-        Expanded(
-          flex: 1,
-          child: SizedBox(
-            height: 30,
-            child: OutlinedButton(
-              onPressed: onTap,
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.primary, width: 1),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+    // If item is in cart, show quantity selector
+    if (widget.cartQuantity > 0) {
+      return Container(
+        height: 32,
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.primary),
+          borderRadius: BorderRadius.circular(8),
+          color: AppColors.primary.withValues(alpha: 0.05),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: () =>
+                  widget.onQuantityChanged?.call(widget.cartQuantity - 1),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(7),
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                child: const Icon(
+                  Icons.remove,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
               ),
-              child: FittedBox(
-                child: const Text(
-                  'View',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFFFF6B6B),
-                    fontWeight: FontWeight.w600,
+            ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  '${widget.cartQuantity}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          flex: 1,
-          child: SizedBox(
-            height: 30,
-            child: ElevatedButton(
-              onPressed: canOrder ? onAddToCart : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: canOrder
-                    ? AppColors.primary
-                    : AppColors.textLight,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            InkWell(
+              onTap: () =>
+                  widget.onQuantityChanged?.call(widget.cartQuantity + 1),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: const BorderRadius.horizontal(
+                    right: Radius.circular(7),
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                disabledBackgroundColor: AppColors.textLight,
+                child: const Icon(
+                  Icons.add,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
               ),
-              child: canOrder
-                  ? const Icon(Icons.add_shopping_cart, size: 14)
-                  : const FittedBox(
-                      child: Text(
-                        'Out of Stock',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
             ),
-          ),
+          ],
         ),
-      ],
+      );
+    }
+
+    // Not in cart - show Add to Cart button only
+    return SizedBox(
+      height: 32,
+      child: ElevatedButton(
+        onPressed: widget.canOrder
+            ? () => widget.onQuantityChanged?.call(1)
+            : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: widget.canOrder
+              ? AppColors.primary
+              : AppColors.textLight,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: widget.canOrder
+            ? const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_shopping_cart, size: 14),
+                  SizedBox(width: 4),
+                  Text(
+                    'Add',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              )
+            : const FittedBox(
+                child: Text(
+                  'Out of Stock',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ),
+      ),
     );
   }
 }
@@ -440,7 +487,8 @@ class ProductGrid extends StatelessWidget {
   final List<Map<String, dynamic>> products;
   final Function(String)? onProductTap;
   final Function(String, bool)? onFavoriteToggle;
-  final Function(String)? onAddToCart;
+  final Function(String, int)? onQuantityChanged;
+  final int Function(String)? getCartQuantity;
   final int crossAxisCount;
   final double childAspectRatio;
   final double spacing;
@@ -452,7 +500,8 @@ class ProductGrid extends StatelessWidget {
     required this.products,
     this.onProductTap,
     this.onFavoriteToggle,
-    this.onAddToCart,
+    this.onQuantityChanged,
+    this.getCartQuantity,
     this.crossAxisCount = 2,
     this.childAspectRatio = 0.62,
     this.spacing = 16,
@@ -474,8 +523,10 @@ class ProductGrid extends StatelessWidget {
       itemCount: products.length,
       itemBuilder: (context, index) {
         final product = products[index];
+        final productId = product['id'] ?? '';
+        final cartQty = getCartQuantity?.call(productId) ?? 0;
         return ProductCard(
-          productId: product['id'] ?? '',
+          productId: productId,
           name: product['name'] ?? 'Product Name',
           price: (product['price'] ?? 0.0).toDouble(),
           imageUrl: product['imageUrl'] is Map
@@ -489,12 +540,13 @@ class ProductGrid extends StatelessWidget {
           isNew: product['isNew'] ?? false,
           availability: product['availability']?.toString(),
           madeToOrder: product['madeToOrder'] ?? false,
-          onTap: () => onProductTap?.call(product['id']),
+          cartQuantity: cartQty,
+          onTap: () => onProductTap?.call(productId),
           onFavoriteTap: () => onFavoriteToggle?.call(
-            product['id'],
+            productId,
             !(product['isFavorite'] ?? false),
           ),
-          onAddToCart: () => onAddToCart?.call(product['id']),
+          onQuantityChanged: (qty) => onQuantityChanged?.call(productId, qty),
         );
       },
     );
@@ -506,14 +558,16 @@ class ProductList extends StatelessWidget {
   final List<Map<String, dynamic>> products;
   final Function(String)? onProductTap;
   final Function(String, bool)? onFavoriteToggle;
-  final Function(String)? onAddToCart;
+  final Function(String, int)? onQuantityChanged;
+  final int Function(String)? getCartQuantity;
 
   const ProductList({
     super.key,
     required this.products,
     this.onProductTap,
     this.onFavoriteToggle,
-    this.onAddToCart,
+    this.onQuantityChanged,
+    this.getCartQuantity,
   });
 
   @override
@@ -524,8 +578,10 @@ class ProductList extends StatelessWidget {
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final product = products[index];
+        final productId = product['id'] ?? '';
+        final cartQty = getCartQuantity?.call(productId) ?? 0;
         return ProductCard(
-          productId: product['id'] ?? '',
+          productId: productId,
           name: product['name'] ?? 'Product Name',
           price: (product['price'] ?? 0.0).toDouble(),
           imageUrl: product['imageUrl'] is Map
@@ -539,12 +595,13 @@ class ProductList extends StatelessWidget {
           isNew: product['isNew'] ?? false,
           availability: product['availability']?.toString(),
           madeToOrder: product['madeToOrder'] ?? false,
-          onTap: () => onProductTap?.call(product['id']),
+          cartQuantity: cartQty,
+          onTap: () => onProductTap?.call(productId),
           onFavoriteTap: () => onFavoriteToggle?.call(
-            product['id'],
+            productId,
             !(product['isFavorite'] ?? false),
           ),
-          onAddToCart: () => onAddToCart?.call(product['id']),
+          onQuantityChanged: (qty) => onQuantityChanged?.call(productId, qty),
         );
       },
     );

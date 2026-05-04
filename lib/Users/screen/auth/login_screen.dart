@@ -15,7 +15,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -24,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late AnimationController _loaderController;
 
   @override
   void initState() {
@@ -46,6 +47,11 @@ class _LoginScreenState extends State<LoginScreen>
         );
 
     _animationController.forward();
+
+    _loaderController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..repeat();
   }
 
   @override
@@ -53,7 +59,36 @@ class _LoginScreenState extends State<LoginScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _animationController.dispose();
+    _loaderController.dispose();
     super.dispose();
+  }
+
+  Widget _buildAnimatedLoader() {
+    return RotationTransition(
+      turns: _loaderController,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border(
+            top: BorderSide(color: Colors.white, width: 2.5),
+            right: BorderSide(
+              color: Colors.white.withValues(alpha: 0.3),
+              width: 2.5,
+            ),
+            bottom: BorderSide(
+              color: Colors.white.withValues(alpha: 0.1),
+              width: 2.5,
+            ),
+            left: BorderSide(
+              color: Colors.white.withValues(alpha: 0.3),
+              width: 2.5,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _login() async {
@@ -433,11 +468,7 @@ class _LoginScreenState extends State<LoginScreen>
             ? SizedBox(
                 width: isTablet ? 28 : 24,
                 height: isTablet ? 28 : 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 3,
-                  strokeCap: StrokeCap.round,
-                ),
+                child: _buildAnimatedLoader(),
               )
             : Text(
                 'Login',

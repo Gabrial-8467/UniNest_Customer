@@ -1640,6 +1640,11 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
     return null;
   }
 
+  int getCartQuantity(String productId) {
+    final item = _getCartItemRef(productId);
+    return item != null ? (item['quantity'] as int?) ?? 1 : 0;
+  }
+
   Future<void> _restoreFavoritesFromStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();

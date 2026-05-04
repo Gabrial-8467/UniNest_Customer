@@ -1473,8 +1473,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             if (count is num) reviewCount = count.toInt();
           }
 
+          final productId = (product['id'] ?? '').toString();
+          final cartQuantity = appState.getCartQuantity(productId);
+
           return ProductCard(
-            productId: (product['id'] ?? '').toString(),
+            productId: productId,
             name: (product['name'] ?? 'Product Name').toString(),
             price: (product['price'] as num?)?.toDouble() ?? 0,
             imageUrl: product['imageUrl'] is Map
@@ -1487,8 +1490,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             discount: product['discount']?.toString(),
             isNew: product['isNew'] == true,
             availability: product['availability']?.toString(),
+            cartQuantity: cartQuantity,
             onTap: () {
-              final productId = (product['id'] ?? '').toString();
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -1498,16 +1501,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               );
             },
             onFavoriteTap: () {
-              final productId = (product['id'] ?? '').toString();
               final nextValue = !(product['isFavorite'] == true);
               appState.setFavorite(productId, nextValue);
             },
-            onAddToCart: () {
-              final added = appState.addToCart(
-                (product['id'] ?? '').toString(),
-              );
-              if (added) {
-                _showAddToCartSnackbar();
+            onQuantityChanged: (quantity) {
+              if (quantity <= 0) {
+                appState.removeFromCart(productId);
+              } else if (cartQuantity == 0) {
+                // Item not in cart yet - add it
+                final added = appState.addToCart(productId, quantity: quantity);
+                if (added) {
+                  _showAddToCartSnackbar();
+                }
+              } else {
+                // Item already in cart - update quantity
+                appState.updateCartQuantity(productId, quantity);
               }
             },
           );

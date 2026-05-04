@@ -12,10 +12,11 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  late AnimationController _rotationController;
 
   @override
   void initState() {
@@ -39,6 +40,11 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _animationController.forward();
+
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
   }
 
   Future<void> _routeFromSplash() async {
@@ -53,6 +59,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void dispose() {
     _animationController.dispose();
+    _rotationController.dispose();
     super.dispose();
   }
 
@@ -125,14 +132,32 @@ class _SplashScreenState extends State<SplashScreen>
 
                       const SizedBox(height: 50),
 
-                      // Loading indicator
-                      SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.surface.withValues(alpha: 0.8),
+                      // Loading indicator - smooth rotating spinner
+                      RotationTransition(
+                        turns: _rotationController,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border(
+                              top: BorderSide(
+                                color: AppColors.surface,
+                                width: 3.5,
+                              ),
+                              right: BorderSide(
+                                color: AppColors.surface.withValues(alpha: 0.4),
+                                width: 3.5,
+                              ),
+                              bottom: BorderSide(
+                                color: AppColors.surface.withValues(alpha: 0.1),
+                                width: 3.5,
+                              ),
+                              left: BorderSide(
+                                color: AppColors.surface.withValues(alpha: 0.4),
+                                width: 3.5,
+                              ),
+                            ),
                           ),
                         ),
                       ),

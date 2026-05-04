@@ -736,12 +736,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     Map<String, dynamic> product,
     double discountedPrice,
   ) {
-    final totalPrice = discountedPrice * quantity;
+    final productId = product['id']?.toString() ?? '';
+    final cartQuantity = appState.getCartQuantity(productId);
+    final isInCart = cartQuantity > 0;
+    final totalPrice = discountedPrice * (isInCart ? cartQuantity : quantity);
     final screenWidth = MediaQuery.of(context).size.width;
     final textScale = MediaQuery.of(context).textScaler.scale(1);
     final useCompactLayout = screenWidth < 360 || textScale > 1.1;
     final canOrder = product['availability'] == 'in_stock';
 
+    // Quantity selector - only shown when item is in cart
     final quantityControl = Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -754,24 +758,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            onPressed: quantity > 1
-                ? () {
-                    setState(() {
-                      quantity--;
-                    });
-                  }
-                : null,
+            onPressed: cartQuantity > 1
+                ? () => appState.updateCartQuantity(productId, cartQuantity - 1)
+                : () => appState.removeFromCart(productId),
             icon: Icon(
-              Icons.remove_rounded,
+              cartQuantity > 1 ? Icons.remove_rounded : Icons.delete_outline,
               size: 20,
-              color: quantity > 1 ? AppColors.textPrimary : AppColors.textLight,
+              color: AppColors.textPrimary,
             ),
           ),
           SizedBox(
-            width: 28,
+            width: 32,
             child: Center(
               child: Text(
-                '$quantity',
+                '$cartQuantity',
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
@@ -780,11 +780,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             ),
           ),
           IconButton(
-            onPressed: () {
-              setState(() {
-                quantity++;
-              });
-            },
+            onPressed: () =>
+                appState.updateCartQuantity(productId, cartQuantity + 1),
             icon: const Icon(
               Icons.add_rounded,
               size: 20,
@@ -795,15 +792,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       ),
     );
 
+    // Add to Cart button - shown when item is NOT in cart
     final addToCartButton = SizedBox(
       height: 56,
       child: ElevatedButton(
         onPressed: canOrder
             ? () {
-                final added = appState.addToCart(
-                  product['id'],
-                  quantity: quantity,
-                );
+                final added = appState.addToCart(productId, quantity: quantity);
                 if (added) {
                   _showAddToCartSnackbar(
                     productName: (product['name'] ?? 'Item').toString(),
@@ -868,26 +863,40 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       ),
       child: SafeArea(
         top: false,
-        child: useCompactLayout
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: quantityControl,
-                  ),
-                  const SizedBox(height: 12),
-                  addToCartButton,
-                ],
-              )
-            : Row(
+        child: isInCart
+            // Item in cart - show quantity selector
+            ? Row(
                 children: [
                   quantityControl,
                   const SizedBox(width: 12),
-                  Expanded(child: addToCartButton),
+                  Expanded(
+                    child: Container(
+                      height: 56,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        '₹${totalPrice.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFFF6B6B),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
-              ),
+              )
+            // Item not in cart - show Add button with quantity picker
+            : (useCompactLayout
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [addToCartButton],
+                    )
+                  : Row(children: [Expanded(child: addToCartButton)])),
       ),
     );
   }

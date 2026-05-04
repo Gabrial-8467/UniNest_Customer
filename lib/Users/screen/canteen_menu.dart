@@ -135,14 +135,29 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                             onFavoriteToggle: (productId, isFavorite) {
                               appState.setFavorite(productId, isFavorite);
                             },
-                            onAddToCart: (productId) {
-                              final added = appState.addToCart(productId);
-                              if (added) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Added to cart'),
-                                    backgroundColor: Color(0xFFFF6B6B),
-                                  ),
+                            getCartQuantity: (productId) =>
+                                appState.getCartQuantity(productId),
+                            onQuantityChanged: (productId, quantity) {
+                              if (quantity <= 0) {
+                                appState.removeFromCart(productId);
+                              } else if (appState.getCartQuantity(productId) ==
+                                  0) {
+                                final added = appState.addToCart(
+                                  productId,
+                                  quantity: quantity,
+                                );
+                                if (added) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Added to cart'),
+                                      backgroundColor: Color(0xFFFF6B6B),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                appState.updateCartQuantity(
+                                  productId,
+                                  quantity,
                                 );
                               }
                             },

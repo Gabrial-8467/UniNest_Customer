@@ -37,6 +37,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _landmarkController = TextEditingController();
   final _couponController = TextEditingController();
 
+  // Field validation errors
+  String? _blockError;
+  String? _roomError;
+  String? _floorError;
+
   final List<Map<String, dynamic>> paymentMethods = const [
     {
       'id': 0,
@@ -109,6 +114,40 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _landmarkController.dispose();
     _couponController.dispose();
     super.dispose();
+  }
+
+  void _clearFieldErrors() {
+    setState(() {
+      _blockError = null;
+      _roomError = null;
+      _floorError = null;
+    });
+  }
+
+  bool _validateAddressFields() {
+    _clearFieldErrors();
+    bool isValid = true;
+
+    if (fulfillmentType == 'delivery') {
+      final block = _blockController.text.trim();
+      final room = _roomController.text.trim();
+      final floor = _floorController.text.trim();
+
+      if (block.isEmpty) {
+        setState(() => _blockError = 'Block / Building is required');
+        isValid = false;
+      }
+      if (room.isEmpty) {
+        setState(() => _roomError = 'Room Number is required');
+        isValid = false;
+      }
+      if (floor.isEmpty) {
+        setState(() => _floorError = 'Floor is required');
+        isValid = false;
+      }
+    }
+
+    return isValid;
   }
 
   int _resolveRazorpayAmount({
@@ -308,6 +347,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             label: 'Block / Building',
             hint: 'e.g., Block A, Main Building',
             icon: Icons.apartment,
+            errorText: _blockError,
           ),
           const SizedBox(height: 12),
           Row(
@@ -318,6 +358,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   label: 'Room Number',
                   hint: 'e.g., 101',
                   icon: Icons.meeting_room,
+                  errorText: _roomError,
                 ),
               ),
               const SizedBox(width: 12),
@@ -327,6 +368,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   label: 'Floor',
                   hint: 'e.g., Ground, 1st',
                   icon: Icons.stairs,
+                  errorText: _floorError,
                 ),
               ),
             ],
@@ -647,6 +689,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             onTap: () async {
               setState(() {
                 fulfillmentType = option['id'] as String;
+                // Clear errors when switching order type
+                if (fulfillmentType != 'delivery') {
+                  _clearFieldErrors();
+                }
               });
               // Refresh pricing when fulfillment type changes
               await _fetchBackendPricing();
@@ -836,6 +882,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _placeOrder(CampusAppState appState) async {
     if (appState.cartItems.isEmpty) {
+      return;
+    }
+
+    // Validate address fields for delivery
+    if (!_validateAddressFields()) {
       return;
     }
 
@@ -1096,28 +1147,65 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     required String label,
     required String hint,
     required IconData icon,
+    String? errorText,
   }) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(icon, color: AppColors.textSecondary),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.textLight),
+    final hasError = errorText != null && errorText.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: hint,
+            prefixIcon: Icon(
+              icon,
+              color: hasError ? AppColors.error : AppColors.textSecondary,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: hasError ? AppColors.error : AppColors.textLight,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: hasError ? AppColors.error : AppColors.textLight,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: hasError ? AppColors.error : AppColors.primary,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.error, width: 1.5),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.error, width: 2),
+            ),
+            filled: true,
+            fillColor: AppColors.background,
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.textLight),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primary),
-        ),
-        filled: true,
-        fillColor: AppColors.background,
-      ),
+        if (hasError) ...[
+          const SizedBox(height: 4),
+          Text(
+            errorText,
+            style: TextStyle(
+              color: AppColors.error,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
