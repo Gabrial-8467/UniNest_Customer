@@ -53,6 +53,10 @@ class ApiEndpoints {
   // Notifications
   static const String notifications = '$apiPrefix/notifications';
   static const String markNotificationsRead = '$apiPrefix/notifications/read';
+  static const String registerNotificationToken =
+      '/api/notifications/register-token';
+  static const String unregisterNotificationToken =
+      '/api/notifications/unregister-token';
 
   // Utility
   static const String health = '/health';

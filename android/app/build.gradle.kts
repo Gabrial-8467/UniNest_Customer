@@ -38,6 +38,12 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
+    }
     
     applicationVariants.configureEach {
         val variant = this
@@ -52,6 +58,7 @@ android {
 
 dependencies {
     // Add your regular dependencies here
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
 
 flutter {

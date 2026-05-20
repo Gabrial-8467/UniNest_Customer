@@ -1,15 +1,88 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../firebase_options.dart';
 import 'auth_service.dart';
+import '../config/app_config.dart';
+import '../config/api_endpoints.dart';
 import 'dart:async';
+
+// Background message handler - must be a top-level function
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint('Background message received: ${message.messageId}');
+
+  // Show local notification for background messages
+  String title =
+      message.notification?.title ??
+      message.data['title']?.toString() ??
+      'UniNest';
+  String body =
+      message.notification?.body ??
+      message.data['body']?.toString() ??
+      message.data['message']?.toString() ??
+      'You have a new notification';
+
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'high_importance_channel',
+    'High Importance Notifications',
+    description: 'This channel is used for important notifications.',
+    importance: Importance.high,
+  );
+
+  final FlutterLocalNotificationsPlugin localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const DarwinInitializationSettings initializationSettingsDarwin =
+      DarwinInitializationSettings();
+
+  const InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+    iOS: initializationSettingsDarwin,
+  );
+
+  await localNotifications.initialize(initializationSettings);
+
+  await localNotifications
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.createNotificationChannel(channel);
+
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      AndroidNotificationDetails(
+        'high_importance_channel',
+        'High Importance Notifications',
+        channelDescription: 'This channel is used for important notifications.',
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+
+  const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    android: androidPlatformChannelSpecifics,
+  );
+
+  await localNotifications.show(
+    0,
+    title,
+    body,
+    platformChannelSpecifics,
+    payload: jsonEncode(message.data),
+  );
+}
 
 class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  static final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   static final StreamController<Map<String, dynamic>> _notificationController =
       StreamController<Map<String, dynamic>>.broadcast();
   static const String _cachedNotificationsKey =
@@ -22,6 +95,12 @@ class NotificationService {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // Initialize local notifications
+    await _initializeLocalNotifications();
+
+    // Set background message handler
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     // Request permission (iOS only, Android auto-grants)
     NotificationSettings settings = await _messaging.requestPermission(
@@ -75,6 +154,9 @@ class NotificationService {
       debugPrint('Title empty: ${title.isEmpty}');
       debugPrint('Body empty: ${body.isEmpty}');
 
+      // Show local notification for foreground messages
+      _showLocalNotification(title, body, message.data);
+
       // Broadcast notification to UI
       final notificationId =
           message.data['notificationId']?.toString() ??
@@ -103,21 +185,88 @@ class NotificationService {
     });
   }
 
+  static Future<void> _initializeLocalNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings();
+
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsDarwin,
+        );
+
+    await _localNotifications.initialize(initializationSettings);
+
+    // Create Android notification channels
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'high_importance_channel',
+      'High Importance Notifications',
+      description: 'This channel is used for important notifications.',
+      importance: Importance.high,
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+  }
+
+  static Future<void> _showLocalNotification(
+    String title,
+    String body,
+    Map<String, dynamic> data,
+  ) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+          'high_importance_channel',
+          'High Importance Notifications',
+          channelDescription:
+              'This channel is used for important notifications.',
+          importance: Importance.high,
+          priority: Priority.high,
+        );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+    );
+
+    await _localNotifications.show(
+      0,
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: jsonEncode(data),
+    );
+  }
+
   static Future<void> _registerTokenWithBackend(String token) async {
     try {
       // Get actual JWT token from AuthService
       final authToken = await AuthService.getToken();
 
       if (authToken == null || authToken.isEmpty) {
-        debugPrint('❌ No auth token available for FCM registration');
+        debugPrint(
+          '⚠️ No auth token available for FCM registration - will retry after login',
+        );
+        // Store token locally for later registration when user logs in
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('pending_fcm_token', token);
         return;
       }
 
+      // Use configured base URL from AppConfig
+      final baseUrl = AppConfig.getPublicApiBaseUrl();
+      final registerUrl = '$baseUrl${ApiEndpoints.registerNotificationToken}';
+
+      debugPrint('📤 Registering FCM token with backend: $registerUrl');
+
       // Call your backend API
       final response = await http.post(
-        Uri.parse(
-          'https://uninest-backend.onrender.com/api/notifications/register-token',
-        ),
+        Uri.parse(registerUrl),
         headers: {
           'Authorization': 'Bearer $authToken',
           'Content-Type': 'application/json',
@@ -130,12 +279,32 @@ class NotificationService {
       );
 
       if (response.statusCode == 200) {
-        debugPrint('FCM token registered successfully');
+        debugPrint('✅ FCM token registered successfully');
+        // Clear pending token after successful registration
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('pending_fcm_token');
       } else {
-        debugPrint('Failed to register token: ${response.body}');
+        debugPrint(
+          '❌ Failed to register token: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
-      debugPrint('Error registering FCM token: $e');
+      debugPrint('❌ Error registering FCM token: $e');
+    }
+  }
+
+  // Call this method after user logs in to register pending FCM token
+  static Future<void> registerPendingTokenAfterLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingToken = prefs.getString('pending_fcm_token');
+
+      if (pendingToken != null && pendingToken.isNotEmpty) {
+        debugPrint('📤 Registering pending FCM token after login');
+        await _registerTokenWithBackend(pendingToken);
+      }
+    } catch (e) {
+      debugPrint('❌ Error registering pending FCM token: $e');
     }
   }
 

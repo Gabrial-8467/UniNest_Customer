@@ -87,6 +87,11 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
         final products = appState.productsByCanteen(widget.canteenId);
         final filtered = _filteredProducts(products);
 
+        // Check if cart has items from a different canteen
+        final cartCanteenId = appState.cartCanteenId;
+        final isDifferentCanteen =
+            cartCanteenId != null && cartCanteenId != widget.canteenId;
+
         return Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),
           appBar: AppBar(
@@ -111,6 +116,8 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                 if (!isCanteenOpen)
                   _buildClosedCanteenNotice(canteen)
                 else ...[
+                  if (isDifferentCanteen)
+                    _buildDifferentCanteenNotice(appState),
                   _buildCategories(),
                   if (selectedCategory == 'All')
                     _buildFeaturedProductsSection(appState),
@@ -122,7 +129,20 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                             products: filtered,
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
+                            canAddToCart: (productId) =>
+                                appState.canAddToCart(productId),
                             onProductTap: (productId) {
+                              if (!appState.canAddToCart(productId)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Clear cart to add items from this canteen',
+                                    ),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                                return;
+                              }
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -151,6 +171,15 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                                     const SnackBar(
                                       content: Text('Added to cart'),
                                       backgroundColor: Color(0xFFFF6B6B),
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Clear cart to add items from this canteen',
+                                      ),
+                                      backgroundColor: Colors.orange,
                                     ),
                                   );
                                 }
@@ -369,6 +398,84 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
               fontSize: 13,
               height: 1.35,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDifferentCanteenNotice(CampusAppState appState) {
+    final cartCanteen = appState.getCanteenById(appState.cartCanteenId ?? '');
+    final cartCanteenName = cartCanteen?['name'] ?? 'another canteen';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.shopping_cart_outlined,
+              color: Colors.orange,
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Cart has items from $cartCanteenName',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2D3436),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'You can only order from one canteen at a time. Clear your cart to add items from this canteen.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              appState.clearCart();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Cart cleared'),
+                  backgroundColor: Color(0xFFFF6B6B),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6B6B),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text('Clear Cart'),
           ),
         ],
       ),

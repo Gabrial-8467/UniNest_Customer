@@ -123,7 +123,11 @@ class _LoginScreenState extends State<LoginScreen>
                 backgroundColor: AppColors.success,
               ),
             );
-            Navigator.pushReplacementNamed(context, '/home');
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/home',
+              (route) => false,
+            );
           }
         } else {
           if (mounted) {

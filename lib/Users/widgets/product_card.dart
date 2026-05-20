@@ -20,6 +20,7 @@ class ProductCard extends StatefulWidget {
   final String? availability;
   final bool? madeToOrder;
   final int cartQuantity;
+  final bool canAddToCart;
 
   const ProductCard({
     super.key,
@@ -40,9 +41,12 @@ class ProductCard extends StatefulWidget {
     this.availability,
     this.madeToOrder,
     this.cartQuantity = 0,
+    this.canAddToCart = true,
   });
 
   bool get canOrder {
+    // Check if can add based on canteen restriction
+    if (!canAddToCart) return false;
     // Made-to-order items are always available
     if (madeToOrder == true) return true;
     // Pre-packaged items need to be in stock
@@ -56,49 +60,57 @@ class ProductCard extends StatefulWidget {
 class _ProductCardState extends State<ProductCard> {
   @override
   Widget build(BuildContext context) {
+    final isDisabled = !widget.canAddToCart;
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: isDisabled
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 15,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: Card(
         elevation: 0,
-        color: Colors.white,
+        color: isDisabled ? Colors.grey[200] : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: InkWell(
-          onTap: widget.onTap,
+          onTap: isDisabled ? null : widget.onTap,
           borderRadius: BorderRadius.circular(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          child: Stack(
             children: [
-              _buildImageSection(),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 3),
-                    _buildCanteenInfo(),
-                    const SizedBox(height: 5),
-                    _buildPriceAndRatingRow(),
-                    const SizedBox(height: 6),
-                    _buildActions(),
-                  ],
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildImageSection(isDisabled),
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildHeader(isDisabled),
+                        const SizedBox(height: 3),
+                        _buildCanteenInfo(isDisabled),
+                        const SizedBox(height: 5),
+                        _buildPriceAndRatingRow(isDisabled),
+                        const SizedBox(height: 6),
+                        _buildActions(),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -107,7 +119,7 @@ class _ProductCardState extends State<ProductCard> {
     );
   }
 
-  Widget _buildImageSection() {
+  Widget _buildImageSection(bool isDisabled) {
     return AspectRatio(
       // Slightly wider ratio leaves enough height for card content in small grids.
       aspectRatio: 16 / 11,
@@ -115,52 +127,60 @@ class _ProductCardState extends State<ProductCard> {
         children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            child: Image.network(
-              widget.imageUrl,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              // Enable HTTP caching for better performance
-              headers: const {'Cache-Control': 'max-age=3600'},
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppColors.textLight, AppColors.textSecondary],
+            child: ColorFiltered(
+              colorFilter: isDisabled
+                  ? ColorFilter.mode(Colors.grey, BlendMode.saturation)
+                  : const ColorFilter.mode(
+                      Colors.transparent,
+                      BlendMode.srcOver,
                     ),
-                  ),
-                  child: const Icon(
-                    Icons.restaurant_menu,
-                    size: 40,
-                    color: Colors.white,
-                  ),
-                );
-              },
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppColors.background, AppColors.textLight],
+              child: Image.network(
+                widget.imageUrl,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                // Enable HTTP caching for better performance
+                headers: const {'Cache-Control': 'max-age=3600'},
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.textLight, AppColors.textSecondary],
+                      ),
                     ),
-                  ),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                          : null,
-                      strokeWidth: 3,
-                      color: AppColors.primary,
+                    child: const Icon(
+                      Icons.restaurant_menu,
+                      size: 40,
+                      color: Colors.white,
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.background, AppColors.textLight],
+                      ),
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                            : null,
+                        strokeWidth: 3,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
           Positioned(
@@ -260,13 +280,13 @@ class _ProductCardState extends State<ProductCard> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(bool isDisabled) {
     return Text(
       widget.name,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF2D3436),
+        color: isDisabled ? Colors.grey[600] : const Color(0xFF2D3436),
         height: 1.2,
       ),
       maxLines: 1,
@@ -274,18 +294,20 @@ class _ProductCardState extends State<ProductCard> {
     );
   }
 
-  Widget _buildCanteenInfo() {
+  Widget _buildCanteenInfo(bool isDisabled) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
+        color: isDisabled
+            ? Colors.grey[300]
+            : AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         widget.canteenName,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
-          color: Color(0xFFFF6B6B),
+          color: isDisabled ? Colors.grey[600] : const Color(0xFFFF6B6B),
           fontWeight: FontWeight.w600,
         ),
         maxLines: 1,
@@ -294,7 +316,7 @@ class _ProductCardState extends State<ProductCard> {
     );
   }
 
-  Widget _buildPriceAndRatingRow() {
+  Widget _buildPriceAndRatingRow(bool isDisabled) {
     final hasDiscount = widget.discount != null;
     final originalPrice = widget.price;
     final discountedPrice = hasDiscount
@@ -313,21 +335,25 @@ class _ProductCardState extends State<ProductCard> {
                 alignment: Alignment.centerLeft,
                 child: Row(
                   children: [
-                    const Text(
+                    Text(
                       '\u20B9',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFFFF6B6B),
+                        color: isDisabled
+                            ? Colors.grey[600]
+                            : const Color(0xFFFF6B6B),
                       ),
                     ),
                     const SizedBox(width: 2),
                     Text(
                       CurrencyFormatter.formatRupeeRaw(discountedPrice),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFFFF6B6B),
+                        color: isDisabled
+                            ? Colors.grey[600]
+                            : const Color(0xFFFF6B6B),
                       ),
                     ),
                   ],
@@ -340,7 +366,9 @@ class _ProductCardState extends State<ProductCard> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    color: isDisabled
+                        ? Colors.grey[500]
+                        : AppColors.textSecondary,
                     decoration: TextDecoration.lineThrough,
                   ),
                 ),
@@ -351,21 +379,30 @@ class _ProductCardState extends State<ProductCard> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.star, size: 14, color: AppColors.accent),
+            Icon(
+              Icons.star,
+              size: 14,
+              color: isDisabled ? Colors.grey[500] : AppColors.accent,
+            ),
             const SizedBox(width: 2),
             Text(
               widget.rating.toStringAsFixed(1),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: isDisabled ? Colors.grey[600] : AppColors.textPrimary,
               ),
             ),
             if (widget.reviewCount > 0) ...[
               const SizedBox(width: 2),
               Text(
                 '(${widget.reviewCount})',
-                style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDisabled
+                      ? Colors.grey[500]
+                      : AppColors.textSecondary,
+                ),
               ),
             ],
           ],
@@ -459,24 +496,17 @@ class _ProductCardState extends State<ProductCard> {
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        child: widget.canOrder
-            ? const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_shopping_cart, size: 14),
-                  SizedBox(width: 4),
-                  Text(
-                    'Add',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              )
-            : const FittedBox(
-                child: Text(
-                  'Out of Stock',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-                ),
-              ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_shopping_cart, size: 14),
+            SizedBox(width: 4),
+            Text(
+              'Add',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -494,6 +524,7 @@ class ProductGrid extends StatelessWidget {
   final double spacing;
   final bool shrinkWrap;
   final ScrollPhysics? physics;
+  final bool Function(String)? canAddToCart;
 
   const ProductGrid({
     super.key,
@@ -507,6 +538,7 @@ class ProductGrid extends StatelessWidget {
     this.spacing = 16,
     this.shrinkWrap = false,
     this.physics,
+    this.canAddToCart,
   });
 
   @override
@@ -525,6 +557,7 @@ class ProductGrid extends StatelessWidget {
         final product = products[index];
         final productId = product['id'] ?? '';
         final cartQty = getCartQuantity?.call(productId) ?? 0;
+        final canAdd = canAddToCart?.call(productId) ?? true;
         return ProductCard(
           productId: productId,
           name: product['name'] ?? 'Product Name',
@@ -541,6 +574,7 @@ class ProductGrid extends StatelessWidget {
           availability: product['availability']?.toString(),
           madeToOrder: product['madeToOrder'] ?? false,
           cartQuantity: cartQty,
+          canAddToCart: canAdd,
           onTap: () => onProductTap?.call(productId),
           onFavoriteTap: () => onFavoriteToggle?.call(
             productId,
@@ -560,6 +594,7 @@ class ProductList extends StatelessWidget {
   final Function(String, bool)? onFavoriteToggle;
   final Function(String, int)? onQuantityChanged;
   final int Function(String)? getCartQuantity;
+  final bool Function(String)? canAddToCart;
 
   const ProductList({
     super.key,
@@ -568,6 +603,7 @@ class ProductList extends StatelessWidget {
     this.onFavoriteToggle,
     this.onQuantityChanged,
     this.getCartQuantity,
+    this.canAddToCart,
   });
 
   @override
@@ -580,6 +616,7 @@ class ProductList extends StatelessWidget {
         final product = products[index];
         final productId = product['id'] ?? '';
         final cartQty = getCartQuantity?.call(productId) ?? 0;
+        final canAdd = canAddToCart?.call(productId) ?? true;
         return ProductCard(
           productId: productId,
           name: product['name'] ?? 'Product Name',
@@ -596,6 +633,7 @@ class ProductList extends StatelessWidget {
           availability: product['availability']?.toString(),
           madeToOrder: product['madeToOrder'] ?? false,
           cartQuantity: cartQty,
+          canAddToCart: canAdd,
           onTap: () => onProductTap?.call(productId),
           onFavoriteTap: () => onFavoriteToggle?.call(
             productId,

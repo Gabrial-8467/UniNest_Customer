@@ -11,9 +11,6 @@ import '../../../utils/utils.dart';
 
 class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
   CampusAppState() {
-    // DEBUG: Clear cart storage on startup to remove ghost items
-    // Comment out the next line after debugging
-    _clearCartStorage();
     _restoreCartFromStorage();
     _restoreFavoritesFromStorage();
     _restoreOrdersFromStorage();
@@ -23,17 +20,6 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
     _startCanteenStatusPolling();
     // Register for app lifecycle events
     WidgetsBinding.instance.addObserver(this);
-  }
-
-  // DEBUG: Method to completely wipe cart storage
-  Future<void> _clearCartStorage() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(AppConstants.cartKey);
-      debugPrint('🗑️ Cart storage cleared');
-    } catch (e) {
-      debugPrint('Error clearing cart storage: $e');
-    }
   }
 
   @override
@@ -875,6 +861,12 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     }
 
+    // Check if product can be added (same canteen as existing cart items)
+    if (!canAddToCart(productId)) {
+      debugPrint('❌ Cannot add product from different canteen');
+      return false;
+    }
+
     debugPrint('✅ Found product: ${product['name']} (id: ${product['id']})');
     _addingToCartIds.add(productId);
 
@@ -897,6 +889,7 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
       'price': product['price'],
       'imageUrl': product['imageUrl'],
       'canteenName': product['canteenName'],
+      'canteenId': product['canteenId'],
       'quantity': quantity,
       'rating': product['rating'],
       'reviewCount': product['reviewCount'],
@@ -950,6 +943,27 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
     _backendPricing = null;
     notifyListeners();
     _persistCartToStorage();
+  }
+
+  // Get the canteen ID of items in the cart (if any)
+  String? get cartCanteenId {
+    if (_cartItems.isEmpty) return null;
+    return _cartItems.first['canteenId']?.toString();
+  }
+
+  // Check if a product can be added to cart (same canteen as existing items)
+  bool canAddToCart(String productId) {
+    final product = _getProductRef(productId);
+    if (product == null) return false;
+
+    final productCanteenId = product['canteenId']?.toString();
+    final currentCartCanteenId = cartCanteenId;
+
+    // If cart is empty, can add any product
+    if (currentCartCanteenId == null) return true;
+
+    // If product is from same canteen as cart items, can add
+    return productCanteenId == currentCartCanteenId;
   }
 
   // Fetch pricing from backend for accurate pricing display
@@ -1728,6 +1742,7 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
           'price': (item['price'] as num?)?.toDouble() ?? 0.0,
           'imageUrl': (item['imageUrl'] ?? '').toString(),
           'canteenName': (item['canteenName'] ?? '').toString(),
+          'canteenId': (item['canteenId'] ?? '').toString(),
           'quantity': (item['quantity'] as num?)?.toInt() ?? 1,
           'rating': (item['rating'] as num?)?.toDouble() ?? 0.0,
           'reviewCount': (item['reviewCount'] as num?)?.toInt() ?? 0,

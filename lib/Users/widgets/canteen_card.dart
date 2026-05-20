@@ -10,6 +10,7 @@ class CanteenCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final String? imageUrl;
+  final bool isDisabled;
 
   const CanteenCard({
     super.key,
@@ -20,33 +21,40 @@ class CanteenCard extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     this.imageUrl,
+    this.isDisabled = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
+      onTap: isDisabled ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         width: 228,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.08)
-              : AppColors.surface,
+          color: isDisabled
+              ? Colors.grey[200]
+              : (isSelected
+                    ? AppColors.primary.withValues(alpha: 0.08)
+                    : AppColors.surface),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.textLight,
+            color: isDisabled
+                ? Colors.grey[300]!
+                : (isSelected ? AppColors.primary : AppColors.textLight),
             width: isSelected ? 1.4 : 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: isDisabled
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,18 +63,26 @@ class CanteenCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: imageUrl != null && imageUrl!.isNotEmpty
-                      ? Image.network(
-                          imageUrl!,
-                          width: 34,
-                          height: 34,
-                          fit: BoxFit.cover,
-                          // Enable HTTP caching for better performance
-                          headers: const {'Cache-Control': 'max-age=3600'},
-                          errorBuilder: (context, error, stackTrace) =>
-                              _buildDefaultIcon(),
-                        )
-                      : _buildDefaultIcon(),
+                  child: ColorFiltered(
+                    colorFilter: isDisabled
+                        ? ColorFilter.mode(Colors.grey, BlendMode.saturation)
+                        : const ColorFilter.mode(
+                            Colors.transparent,
+                            BlendMode.srcOver,
+                          ),
+                    child: imageUrl != null && imageUrl!.isNotEmpty
+                        ? Image.network(
+                            imageUrl!,
+                            width: 34,
+                            height: 34,
+                            fit: BoxFit.cover,
+                            // Enable HTTP caching for better performance
+                            headers: const {'Cache-Control': 'max-age=3600'},
+                            errorBuilder: (context, error, stackTrace) =>
+                                _buildDefaultIcon(),
+                          )
+                        : _buildDefaultIcon(),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -74,10 +90,12 @@ class CanteenCard extends StatelessWidget {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2D3436),
+                      color: isDisabled
+                          ? Colors.grey[600]
+                          : const Color(0xFF2D3436),
                     ),
                   ),
                 ),
@@ -87,8 +105,10 @@ class CanteenCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: (isOpen ? AppColors.success : AppColors.error)
-                        .withValues(alpha: 0.12),
+                    color: isDisabled
+                        ? Colors.grey[300]
+                        : (isOpen ? AppColors.success : AppColors.error)
+                              .withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -96,7 +116,9 @@ class CanteenCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: isOpen ? AppColors.success : AppColors.error,
+                      color: isDisabled
+                          ? Colors.grey[600]
+                          : (isOpen ? AppColors.success : AppColors.error),
                     ),
                   ),
                 ),
@@ -110,31 +132,41 @@ class CanteenCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 height: 1.35,
-                color: Colors.grey[600],
+                color: isDisabled ? Colors.grey[500] : Colors.grey[600],
               ),
             ),
             const Spacer(),
             Row(
               children: [
-                Icon(Icons.star_rounded, size: 16, color: Colors.amber[600]),
+                Icon(
+                  Icons.star_rounded,
+                  size: 16,
+                  color: isDisabled ? Colors.grey[500] : Colors.amber[600],
+                ),
                 const SizedBox(width: 3),
                 Text(
                   rating.toStringAsFixed(1),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF2D3436),
+                    color: isDisabled
+                        ? Colors.grey[600]
+                        : const Color(0xFF2D3436),
                   ),
                 ),
                 const Spacer(),
                 Text(
-                  isSelected ? 'Selected' : 'Tap to filter',
+                  isDisabled
+                      ? 'Clear cart'
+                      : (isSelected ? 'Selected' : 'Tap to filter'),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isSelected
-                        ? const Color(0xFFFF6B6B)
-                        : const Color(0xFF636E72),
+                    color: isDisabled
+                        ? Colors.grey[600]
+                        : (isSelected
+                              ? const Color(0xFFFF6B6B)
+                              : const Color(0xFF636E72)),
                   ),
                 ),
               ],

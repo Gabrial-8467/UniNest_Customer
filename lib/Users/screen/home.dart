@@ -700,6 +700,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return AppBar(
       backgroundColor: AppColors.surface,
       elevation: 0,
+      automaticallyImplyLeading: false,
       title: GestureDetector(
         onTap: _onLogoTap,
         child: Row(
@@ -1325,6 +1326,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     List<Map<String, dynamic>> canteens,
     bool isLoadingCanteens,
   ) {
+    final appState = AppStateScope.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Column(
@@ -1411,6 +1413,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       final canteen = canteens[index];
                       final canteenId = (canteen['id'] ?? '').toString();
                       final isSelected = selectedCanteenId == canteenId;
+                      final cartCanteenId = appState.cartCanteenId;
+                      final isDisabled =
+                          cartCanteenId != null && cartCanteenId != canteenId;
 
                       return CanteenCard(
                         name: (canteen['name'] ?? 'Canteen').toString(),
@@ -1419,7 +1424,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         isOpen: canteen['isOpen'] == true,
                         isSelected: isSelected,
                         imageUrl: canteen['imageUrl']?.toString(),
+                        isDisabled: isDisabled,
                         onTap: () {
+                          if (isDisabled) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Clear cart to add items from this canteen',
+                                ),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -1475,6 +1492,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
           final productId = (product['id'] ?? '').toString();
           final cartQuantity = appState.getCartQuantity(productId);
+          final canAddToCart = appState.canAddToCart(productId);
 
           return ProductCard(
             productId: productId,
@@ -1491,6 +1509,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             isNew: product['isNew'] == true,
             availability: product['availability']?.toString(),
             cartQuantity: cartQuantity,
+            canAddToCart: canAddToCart,
             onTap: () {
               Navigator.push(
                 context,
