@@ -557,6 +557,7 @@ class ApiService {
       'paymentMethod': methodValue,
       'deliveryAddress': deliveryBody,
       'idempotencyKey': idempotencyKey,
+      if (vendorId != null && vendorId.isNotEmpty) 'vendor': vendorId,
       if (fulfillmentType != null && fulfillmentType.isNotEmpty)
         'fulfillmentType': fulfillmentType,
     };

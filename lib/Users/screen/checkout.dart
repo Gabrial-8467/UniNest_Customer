@@ -954,7 +954,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Create order via API
       debugPrint(
         '🧾 Create order payload: paymentMethod=$paymentMethodValue, '
-        'deliveryAddressType=${deliveryAddress['type']}, items=${items.length}',
+        'vendorId=$_vendorId, deliveryAddressType=${deliveryAddress['type']}, items=${items.length}',
       );
       final result = await ApiService.createOrder(
         token: token,
@@ -962,6 +962,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         paymentMethod: paymentMethodValue,
         deliveryAddress: deliveryAddress,
         fulfillmentType: fulfillmentType,
+        vendorId: _vendorId,
       );
 
       if (!mounted) return;
