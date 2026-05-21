@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/notification_service.dart';
 import '../../../utils/utils.dart';
 
 class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
@@ -17,6 +18,7 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
     _startStatusUpdateTimer();
     _initializeBackendData();
     startNotificationPolling();
+    _listenToPushNotifications();
     _startCanteenStatusPolling();
     // Register for app lifecycle events
     WidgetsBinding.instance.addObserver(this);
@@ -27,6 +29,7 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
     _statusUpdateTimer?.cancel();
     _notificationTimer?.cancel();
     _canteenStatusTimer?.cancel();
+    _pushNotificationSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -86,6 +89,27 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
     _startCanteenStatusPolling();
     startNotificationPolling();
     _startStatusUpdateTimer();
+  }
+
+  // Listen to FCM push notifications for real-time badge updates
+  void _listenToPushNotifications() {
+    _pushNotificationSubscription?.cancel();
+    _pushNotificationSubscription = NotificationService.onNotification.listen((
+      notificationData,
+    ) {
+      final title = notificationData['title']?.toString().trim() ?? '';
+      final message =
+          (notificationData['body'] ?? notificationData['message'])
+              ?.toString()
+              .trim() ??
+          '';
+      if (title.isEmpty && message.isEmpty) return;
+
+      // Increment unread count immediately without waiting for polling
+      _unreadNotificationCount++;
+      notifyListeners();
+      debugPrint('🔔 Real-time badge updated: $_unreadNotificationCount');
+    });
   }
 
   // Start periodic notification count fetch with optimized interval (5 minutes)
@@ -189,13 +213,14 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _statusUpdateTimer;
   Timer? _notificationTimer;
   Timer? _canteenStatusTimer;
+  StreamSubscription<Map<String, dynamic>>? _pushNotificationSubscription;
 
   // Track orders currently being updated to prevent duplicate calls
   final Set<String> _updatingOrderIds = {};
 
   // Track last update time for each order to enforce cooldown
   final Map<String, DateTime> _lastOrderUpdateTime = {};
-  static const _orderUpdateCooldown = Duration(seconds: 3);
+  static const _orderUpdateCooldown = Duration(seconds: 1);
 
   // Track products currently being added to cart to prevent duplicate snackbars
   final Set<String> _addingToCartIds = {};

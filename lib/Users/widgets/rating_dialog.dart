@@ -24,7 +24,6 @@ class _RatingDialogState extends State<RatingDialog> {
   int _deliveryRating = 0;
   int _overallRating = 0;
   final _reviewController = TextEditingController();
-  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -63,19 +62,42 @@ class _RatingDialogState extends State<RatingDialog> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    // Capture context before closing dialog
+    final reviewText = _reviewController.text.trim();
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final onSubmitted = widget.onSubmitted;
 
+    // Optimistic UI: close dialog immediately
+    navigator.pop();
+    onSubmitted?.call();
+
+    // Submit rating in background after dialog is closed
+    _submitRatingInBackground(
+      food: food,
+      delivery: delivery,
+      overall: overall,
+      review: reviewText.isEmpty ? null : reviewText,
+      scaffoldMessenger: scaffoldMessenger,
+    );
+  }
+
+  Future<void> _submitRatingInBackground({
+    required int food,
+    required int delivery,
+    required int overall,
+    String? review,
+    required ScaffoldMessengerState scaffoldMessenger,
+  }) async {
     try {
       final token = await AuthService.getToken();
       if (token == null || token.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please login to submit rating'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('Please login to submit rating'),
+            backgroundColor: AppColors.error,
+          ),
+        );
         return;
       }
 
@@ -85,27 +107,18 @@ class _RatingDialogState extends State<RatingDialog> {
         food: food,
         overall: overall,
         delivery: delivery,
-        review: _reviewController.text.trim().isEmpty
-            ? null
-            : _reviewController.text.trim(),
+        review: review,
       );
 
-      if (!mounted) return;
-
       if (result['success'] == true) {
-        // Close dialog first
-        Navigator.of(context).pop();
-        // Then run callback to refresh orders
-        widget.onSubmitted?.call();
-        // Show success message on parent screen
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           const SnackBar(
             content: Text('Thank you for your rating!'),
             backgroundColor: Colors.green,
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text('Failed to submit: ${result['error']}'),
             backgroundColor: AppColors.error,
@@ -114,20 +127,12 @@ class _RatingDialogState extends State<RatingDialog> {
       }
     } catch (e) {
       debugPrint('Error submitting rating: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to submit rating: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-      // Don't close dialog on error - let user retry
-      return;
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to submit rating: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
@@ -209,9 +214,7 @@ class _RatingDialogState extends State<RatingDialog> {
                 children: [
                   Expanded(
                     child: TextButton(
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
                   ),
@@ -219,7 +222,7 @@ class _RatingDialogState extends State<RatingDialog> {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submitRating,
+                      onPressed: _submitRating,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -228,19 +231,10 @@ class _RatingDialogState extends State<RatingDialog> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Submit Rating',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
+                      child: const Text(
+                        'Submit Rating',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                 ],
@@ -297,7 +291,7 @@ void showRatingDialog(
 }) {
   showDialog(
     context: context,
-    barrierDismissible: false,
+    barrierDismissible: true,
     builder: (context) => RatingDialog(
       orderId: orderId,
       displayOrderId: displayOrderId,

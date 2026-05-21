@@ -23,6 +23,7 @@ class OrderTrackingScreen extends StatefulWidget {
 
 class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   Timer? _countdownTimer;
+  Timer? _statusPollTimer;
 
   @override
   void initState() {
@@ -33,11 +34,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     });
     // Start countdown timer to refresh estimated delivery display
     _startCountdownTimer();
+    // Start fast polling for real-time status updates (10s interval)
+    _startFastStatusPolling();
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _statusPollTimer?.cancel();
     super.dispose();
   }
 
@@ -45,6 +49,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {}); // Refresh UI every second for live countdown
+      }
+    });
+  }
+
+  void _startFastStatusPolling() {
+    _statusPollTimer?.cancel();
+    _statusPollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) {
+        AppStateScope.of(context).updateOrderStatus(widget.orderId);
       }
     });
   }

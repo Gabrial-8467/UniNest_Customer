@@ -27,6 +27,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int totalPages = 1;
   bool hasMoreData = false;
   StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
+  Timer? _timeUpdateTimer;
 
   static const String _menuMarkAllRead = 'mark_all_read';
   static const String _menuClearAll = 'clear_all';
@@ -37,6 +38,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     super.initState();
     _loadNotifications();
     _listenToNotifications();
+    _startTimeUpdateTimer();
+  }
+
+  void _startTimeUpdateTimer() {
+    _timeUpdateTimer?.cancel();
+    _timeUpdateTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted && notifications.isNotEmpty) {
+        setState(() {});
+      }
+    });
   }
 
   void _listenToNotifications() {
@@ -87,6 +98,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void dispose() {
     _notificationSubscription?.cancel();
+    _timeUpdateTimer?.cancel();
     super.dispose();
   }
 
