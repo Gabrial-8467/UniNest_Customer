@@ -3,6 +3,7 @@ import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 import '../../../services/api_service.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/notification_service.dart';
 import '../../state/app_state.dart';
 import '../../../utils/app_theme.dart';
 import '../../../utils/utils.dart';
@@ -24,7 +25,6 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  late AnimationController _loaderController;
 
   @override
   void initState() {
@@ -47,11 +47,6 @@ class _LoginScreenState extends State<LoginScreen>
         );
 
     _animationController.forward();
-
-    _loaderController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    )..repeat();
   }
 
   @override
@@ -59,34 +54,17 @@ class _LoginScreenState extends State<LoginScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _animationController.dispose();
-    _loaderController.dispose();
     super.dispose();
   }
 
   Widget _buildAnimatedLoader() {
-    return RotationTransition(
-      turns: _loaderController,
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border(
-            top: BorderSide(color: Colors.white, width: 2.5),
-            right: BorderSide(
-              color: Colors.white.withValues(alpha: 0.3),
-              width: 2.5,
-            ),
-            bottom: BorderSide(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 2.5,
-            ),
-            left: BorderSide(
-              color: Colors.white.withValues(alpha: 0.3),
-              width: 2.5,
-            ),
-          ),
-        ),
+    return const SizedBox(
+      width: 24,
+      height: 24,
+      child: CircularProgressIndicator(
+        strokeWidth: 2.5,
+        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        backgroundColor: Color(0x40FFFFFF),
       ),
     );
   }
@@ -117,12 +95,16 @@ class _LoginScreenState extends State<LoginScreen>
           if (mounted) {
             await AppStateScope.of(context).refreshAllData();
             if (!mounted) return;
+            // Register pending FCM token after login
+            await NotificationService.registerPendingTokenAfterLogin();
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Login successful!'),
                 backgroundColor: AppColors.success,
               ),
             );
+            if (!mounted) return;
             Navigator.pushNamedAndRemoveUntil(
               context,
               '/home',

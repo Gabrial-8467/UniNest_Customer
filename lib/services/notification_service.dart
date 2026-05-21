@@ -102,22 +102,35 @@ class NotificationService {
     // Set background message handler
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-    // Request permission (iOS only, Android auto-grants)
+    // Request permission (required for iOS and Android 13+)
     NotificationSettings settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
 
+    debugPrint(
+      '🔔 Notification permission status: ${settings.authorizationStatus}',
+    );
+
     if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      debugPrint('Push notifications denied');
+      debugPrint('❌ Push notifications denied by user');
       return;
+    }
+
+    if (settings.authorizationStatus == AuthorizationStatus.notDetermined) {
+      debugPrint('⚠️ Push notifications permission not determined');
     }
 
     // Get FCM token
     String? token = await _messaging.getToken();
+    debugPrint(
+      '🔑 FCM Token: ${token != null ? "${token.substring(0, 20)}..." : "NULL"}',
+    );
     if (token != null) {
       await _registerTokenWithBackend(token);
+    } else {
+      debugPrint('❌ Failed to get FCM token');
     }
 
     // Listen for token refresh

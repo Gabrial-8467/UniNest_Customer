@@ -1,8 +1,8 @@
-# Campus Eats - Application Documentation
+# UniNest - Application Documentation
 
 ## Overview
 
-**Campus Eats** (also branded as **UNINEST**) is a comprehensive Flutter-based food ordering mobile application designed for university campuses. The app connects students and faculty with campus canteens, enabling seamless food ordering, delivery tracking, and payment processing.
+**UniNest** (also branded as **UNINEST**) is a comprehensive Flutter-based food ordering mobile application designed for university campuses. The app connects students and faculty with campus canteens, enabling seamless food ordering, delivery tracking, and payment processing.
 
 ---
 
@@ -26,7 +26,7 @@
 
 | Property | Value |
 |----------|-------|
-| **App Name** | Campus Eats / UNINEST |
+| **App Name** | UniNest / UNINEST |
 | **Version** | 1.0.0+1 |
 | **Platform** | Flutter (Cross-platform) |
 | **Minimum SDK** | Dart 3.11.1 |
@@ -505,7 +505,7 @@ For technical support or feature requests:
 
 ## Conclusion
 
-Campus Eats (UNINEST) is a feature-rich, production-ready food ordering application built with Flutter. It provides a seamless experience for campus food ordering with robust backend integration, secure payment processing, and real-time order tracking. The app is designed for scalability and can be extended with additional features as needed.
+UniNest (UNINEST) is a feature-rich, production-ready food ordering application built with Flutter. It provides a seamless experience for campus food ordering with robust backend integration, secure payment processing, and real-time order tracking. The app is designed for scalability and can be extended with additional features as needed.
 
 ---
 

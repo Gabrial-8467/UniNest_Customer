@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
@@ -529,7 +530,7 @@ class ApiService {
         ? 'cod'
         : 'razorpay';
 
-    // Build deliveryAddress with optional location object
+    // Build deliveryAddress with flat fields matching backend schema
     final deliveryBody = <String, dynamic>{
       'address': (deliveryAddress['address'] ?? '').toString(),
       'addressType':
@@ -537,14 +538,25 @@ class ApiService {
                   deliveryAddress['addressType'] ??
                   'campus')
               .toString(),
+      'building': (deliveryAddress['building'] ?? '').toString(),
+      'room': (deliveryAddress['room'] ?? '').toString(),
     };
 
-    // Location object removed for debugging - backend validation issue
+    // Add landmark if provided
+    final landmark = (deliveryAddress['landmark'] ?? '').toString();
+    if (landmark.isNotEmpty) {
+      deliveryBody['landmark'] = landmark;
+    }
+
+    // Generate idempotency key to prevent duplicate orders on retries
+    final idempotencyKey =
+        'ord_${DateTime.now().millisecondsSinceEpoch}_${(1000 + Random().nextInt(8999))}';
 
     final body = <String, dynamic>{
       'items': orderItems,
       'paymentMethod': methodValue,
       'deliveryAddress': deliveryBody,
+      'idempotencyKey': idempotencyKey,
       if (fulfillmentType != null && fulfillmentType.isNotEmpty)
         'fulfillmentType': fulfillmentType,
     };

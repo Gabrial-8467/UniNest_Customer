@@ -33,14 +33,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // Delivery location controllers
   final _blockController = TextEditingController();
   final _roomController = TextEditingController();
-  final _floorController = TextEditingController();
   final _landmarkController = TextEditingController();
   final _couponController = TextEditingController();
 
   // Field validation errors
   String? _blockError;
-  String? _roomError;
-  String? _floorError;
 
   final List<Map<String, dynamic>> paymentMethods = const [
     {
@@ -110,7 +107,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _razorpay.clear();
     _blockController.dispose();
     _roomController.dispose();
-    _floorController.dispose();
     _landmarkController.dispose();
     _couponController.dispose();
     super.dispose();
@@ -119,8 +115,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _clearFieldErrors() {
     setState(() {
       _blockError = null;
-      _roomError = null;
-      _floorError = null;
     });
   }
 
@@ -130,19 +124,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     if (fulfillmentType == 'delivery') {
       final block = _blockController.text.trim();
-      final room = _roomController.text.trim();
-      final floor = _floorController.text.trim();
 
       if (block.isEmpty) {
         setState(() => _blockError = 'Block / Building is required');
-        isValid = false;
-      }
-      if (room.isEmpty) {
-        setState(() => _roomError = 'Room Number is required');
-        isValid = false;
-      }
-      if (floor.isEmpty) {
-        setState(() => _floorError = 'Floor is required');
         isValid = false;
       }
     }
@@ -350,28 +334,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             errorText: _blockError,
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildLocationTextField(
-                  controller: _roomController,
-                  label: 'Room Number',
-                  hint: 'e.g., 101',
-                  icon: Icons.meeting_room,
-                  errorText: _roomError,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildLocationTextField(
-                  controller: _floorController,
-                  label: 'Floor',
-                  hint: 'e.g., Ground, 1st',
-                  icon: Icons.stairs,
-                  errorText: _floorError,
-                ),
-              ),
-            ],
+          _buildLocationTextField(
+            controller: _roomController,
+            label: 'Room Number',
+            hint: 'e.g., 101',
+            icon: Icons.meeting_room,
           ),
           const SizedBox(height: 12),
           _buildLocationTextField(
@@ -972,9 +939,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (_roomController.text.trim().isNotEmpty) {
         addressParts.add('Room ${_roomController.text.trim()}');
       }
-      if (_floorController.text.trim().isNotEmpty) {
-        addressParts.add('${_floorController.text.trim()} Floor');
-      }
       final addressString = addressParts.join(', ');
 
       final deliveryAddress = <String, dynamic>{
@@ -982,7 +946,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'type': 'campus',
         'building': _blockController.text.trim(),
         'room': _roomController.text.trim(),
-        'floor': _floorController.text.trim(),
       };
       if (_landmarkController.text.trim().isNotEmpty) {
         deliveryAddress['landmark'] = _landmarkController.text.trim();

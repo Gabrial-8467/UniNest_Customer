@@ -28,7 +28,7 @@
 	<true/>
 	<!-- Required for location-based features (nearby vendors, delivery) -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Campus Eats uses your location to show nearby vendors and improve delivery-related features.</string>
+	<string>UniNest uses your location to show nearby vendors and improve delivery-related features.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

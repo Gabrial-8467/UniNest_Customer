@@ -116,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             final vendorName =
                 latestOrder['vendorName']?.toString() ??
                 latestOrder['canteenName']?.toString() ??
-                'Campus Eats';
+                'UniNest';
 
             if (orderId.isNotEmpty) {
               _showOrderStatusToast(orderId, vendorName, status);
@@ -255,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _orderVendorName ?? 'Campus Eats',
+                    _orderVendorName ?? 'UniNest',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,

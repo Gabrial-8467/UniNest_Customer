@@ -135,28 +135,17 @@ class _SplashScreenState extends State<SplashScreen>
                       // Loading indicator - smooth rotating spinner
                       RotationTransition(
                         turns: _rotationController,
-                        child: Container(
+                        child: SizedBox(
                           width: 40,
                           height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border(
-                              top: BorderSide(
-                                color: AppColors.surface,
-                                width: 3.5,
-                              ),
-                              right: BorderSide(
-                                color: AppColors.surface.withValues(alpha: 0.4),
-                                width: 3.5,
-                              ),
-                              bottom: BorderSide(
-                                color: AppColors.surface.withValues(alpha: 0.1),
-                                width: 3.5,
-                              ),
-                              left: BorderSide(
-                                color: AppColors.surface.withValues(alpha: 0.4),
-                                width: 3.5,
-                              ),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3.5,
+                            value: 0.75,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.surface,
+                            ),
+                            backgroundColor: AppColors.surface.withValues(
+                              alpha: 0.15,
                             ),
                           ),
                         ),
