@@ -1,389 +1,93 @@
 import 'package:flutter/material.dart';
 
-class SecretSignatureScreen extends StatelessWidget {
+import '../../utils/app_theme.dart';
+
+class SecretSignatureScreen extends StatefulWidget {
   const SecretSignatureScreen({super.key});
+
+  @override
+  State<SecretSignatureScreen> createState() => _SecretSignatureScreenState();
+}
+
+class _SecretSignatureScreenState extends State<SecretSignatureScreen>
+    with TickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final List<Animation<double>> _fadeAnimations;
+  late final List<Animation<Offset>> _slideAnimations;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _fadeAnimations = List.generate(6, (i) {
+      return Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: Interval(i * 0.1, 0.6 + i * 0.08, curve: Curves.easeOut),
+        ),
+      );
+    });
+
+    _slideAnimations = List.generate(6, (i) {
+      return Tween<Offset>(
+        begin: const Offset(0, 20),
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: Interval(i * 0.1, 0.6 + i * 0.08, curve: Curves.easeOutCubic),
+        ),
+      );
+    });
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: const Text(
-          'Developer Signature',
-          style: TextStyle(
-            color: Color(0xFF2D3436),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Color(0xFF2D3436)),
-        elevation: 0,
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isSmallScreen = constraints.maxWidth < 600;
-
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isSmallScreen ? 16 : 32,
-                    vertical: isSmallScreen ? 16 : 24,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(
-                          isSmallScreen ? 50 : 60,
-                        ),
-                        child: Container(
-                          width: isSmallScreen ? 100 : 120,
-                          height: isSmallScreen ? 100 : 120,
-                          decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(
-                                  0xFFFF6B6B,
-                                ).withValues(alpha: 0.3),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                              ),
-                            ],
-                          ),
-                          child: Image.asset(
-                            'assets/uninest.jpeg',
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: isSmallScreen ? 30 : 40),
-
-                      Text(
-                        'UNI NEST',
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 28 : 32,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF2D3436),
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      Text(
-                        'Crafted with ❤️ by',
-                        style: TextStyle(
-                          fontSize: isSmallScreen ? 16 : 18,
-                          color: const Color(0xFFFF6B6B),
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      SizedBox(height: isSmallScreen ? 16 : 20),
-
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [
-                            Color(0xFFFF6B6B),
-                            Color(0xFF4ECDC4),
-                            Color(0xFFFF6B6B),
-                          ],
-                          tileMode: TileMode.mirror,
-                        ).createShader(bounds),
-                        child: Text(
-                          'Gabrial Deora',
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 24 : 28,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: isSmallScreen ? 30 : 40),
-
-                      Container(
-                        margin: EdgeInsets.symmetric(
-                          horizontal: isSmallScreen ? 16 : 32,
-                        ),
-                        padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(
-                              0xFFFF6B6B,
-                            ).withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.psychology,
-                              color: const Color(0xFFFF6B6B),
-                              size: isSmallScreen ? 28 : 32,
-                            ),
-                            SizedBox(height: isSmallScreen ? 10 : 12),
-                            Text(
-                              '🎉 CONGRATULATIONS! 🎉',
-                              style: TextStyle(
-                                color: const Color(0xFF2D3436),
-                                fontSize: isSmallScreen ? 16 : 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            SizedBox(height: isSmallScreen ? 6 : 8),
-                            Text(
-                              'You\'ve discovered the legendary secret screen!\nOnly the most curious minds find this place.',
-                              style: TextStyle(
-                                color: const Color(0xFF636E72),
-                                fontSize: isSmallScreen ? 13 : 14,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: isSmallScreen ? 30 : 40),
-
-                      Column(
-                        children: [
-                          Text(
-                            '🌟 UNI NEST Perks 🌟',
-                            style: TextStyle(
-                              color: const Color(0xFF2D3436),
-                              fontSize: isSmallScreen ? 16 : 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          SizedBox(height: isSmallScreen ? 12 : 16),
-                          _buildPowerCard(
-                            '🍔',
-                            'Order delicious food instantly',
-                            isSmallScreen,
-                          ),
-                          _buildPowerCard(
-                            '⚡',
-                            'Lightning-fast delivery to your location',
-                            isSmallScreen,
-                          ),
-                          _buildPowerCard(
-                            '💰',
-                            'Exclusive student discounts & offers',
-                            isSmallScreen,
-                          ),
-                          _buildPowerCard(
-                            '📱',
-                            'Track your order in real-time',
-                            isSmallScreen,
-                          ),
-                          _buildPowerCard(
-                            '⭐',
-                            'Rate and review your favorite meals',
-                            isSmallScreen,
-                          ),
-                        ],
-                      ),
-
-                      SizedBox(height: isSmallScreen ? 30 : 40),
-
-                      Container(
-                        margin: EdgeInsets.symmetric(
-                          horizontal: isSmallScreen ? 16 : 32,
-                        ),
-                        padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(
-                              0xFFFF6B6B,
-                            ).withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Column(
-                              children: [
-                                Icon(
-                                  Icons.email,
-                                  color: const Color(0xFFFF6B6B),
-                                  size: isSmallScreen ? 28 : 32,
-                                ),
-                                SizedBox(height: isSmallScreen ? 10 : 12),
-                                Text(
-                                  'Found the signature? Let me know!',
-                                  style: TextStyle(
-                                    color: const Color(0xFF2D3436),
-                                    fontSize: isSmallScreen ? 16 : 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                SizedBox(height: isSmallScreen ? 8 : 10),
-                                GestureDetector(
-                                  onTap: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                          'Email copied! Send your message to gabrialdeora003@gmail.com',
-                                        ),
-                                        backgroundColor: const Color(
-                                          0xFFFF6B6B,
-                                        ),
-                                        duration: const Duration(seconds: 3),
-                                      ),
-                                    );
-                                  },
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: isSmallScreen ? 12 : 16,
-                                      vertical: isSmallScreen ? 8 : 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF8F9FA),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: const Color(
-                                          0xFFFF6B6B,
-                                        ).withValues(alpha: 0.5),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.copy,
-                                          size: isSmallScreen ? 16 : 18,
-                                          color: const Color(0xFFFF6B6B),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'gabrialdeora003@gmail.com',
-                                          style: TextStyle(
-                                            color: const Color(0xFF2D3436),
-                                            fontSize: isSmallScreen ? 13 : 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(height: isSmallScreen ? 8 : 10),
-                                Text(
-                                  'I found your signature!',
-                                  style: TextStyle(
-                                    color: const Color(0xFF636E72),
-                                    fontSize: isSmallScreen ? 12 : 13,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Positioned(
-                              right: -20,
-                              top: -25,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFF6B6B),
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFFFF6B6B,
-                                      ).withValues(alpha: 0.3),
-                                      blurRadius: 6,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.auto_awesome,
-                                      color: Colors.white,
-                                      size: isSmallScreen ? 12 : 14,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'SURPRISE!',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: isSmallScreen ? 10 : 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      SizedBox(height: isSmallScreen ? 40 : 60),
-
-                      ElevatedButton.icon(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.arrow_back),
-                        label: const Text('Go Back'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF6B6B),
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isSmallScreen ? 20 : 24,
-                            vertical: isSmallScreen ? 10 : 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+      backgroundColor: AppColors.background,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            floating: true,
+            backgroundColor: AppColors.surface,
+            foregroundColor: AppColors.textPrimary,
+            iconTheme: const IconThemeData(color: AppColors.primary),
+            title: Text(
+              'Developer Signature',
+              style: DMSansFont.bold.copyWith(fontSize: 18),
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildPowerCard(String emoji, String text, bool isSmallScreen) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: const Color(0xFFFF6B6B).withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: TextStyle(fontSize: isSmallScreen ? 18 : 20)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: const Color(0xFF2D3436),
-                fontSize: isSmallScreen ? 13 : 14,
+            centerTitle: true,
+            elevation: 0,
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _animatedSection(0, _buildLogo()),
+                  const SizedBox(height: 24),
+                  _animatedSection(1, _buildTitle()),
+                  const SizedBox(height: 32),
+                  _animatedSection(2, _buildDiscoveryCard()),
+                  const SizedBox(height: 32),
+                  _animatedSection(3, _buildPerksSection()),
+                  const SizedBox(height: 32),
+                  _animatedSection(4, _buildContactCard(context)),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),
@@ -391,4 +95,328 @@ class SecretSignatureScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _animatedSection(int index, Widget child) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return FadeTransition(
+          opacity: _fadeAnimations[index],
+          child: SlideTransition(
+            position: _slideAnimations[index],
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLogo() {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.2),
+            blurRadius: 24,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: Image.asset(
+          'assets/uninest.png',
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTitle() {
+    return Column(
+      children: [
+        Text(
+          'UNI NEST',
+          style: DMSansFont.bold.copyWith(
+            fontSize: 32,
+            color: AppColors.textPrimary,
+            letterSpacing: 3,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Crafted with passion by',
+          style: DMSansFont.medium.copyWith(
+            fontSize: 16,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Gabrial Deora',
+          style: DMSansFont.semiBold.copyWith(
+            fontSize: 28,
+            color: AppColors.primary,
+            letterSpacing: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiscoveryCard() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppColors.primary.withValues(alpha: 0.15)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.auto_awesome,
+                color: AppColors.primary,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'You discovered the secret!',
+              style: DMSansFont.bold.copyWith(
+                fontSize: 18,
+                color: AppColors.textPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Only the most curious minds find this place. Welcome to the inner circle.',
+              style: DMSansFont.regular.copyWith(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPerksSection() {
+    final perks = [
+      _PerkData(
+        icon: Icons.fastfood_outlined,
+        text: 'Order delicious food instantly',
+      ),
+      _PerkData(
+        icon: Icons.bolt_outlined,
+        text: 'Lightning-fast delivery to your location',
+      ),
+      _PerkData(
+        icon: Icons.local_offer_outlined,
+        text: 'Exclusive student discounts & offers',
+      ),
+      _PerkData(
+        icon: Icons.map_outlined,
+        text: 'Track your order in real-time',
+      ),
+      _PerkData(
+        icon: Icons.star_outline,
+        text: 'Rate and review your favorite meals',
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'UNI NEST Perks',
+          style: DMSansFont.semiBold.copyWith(
+            fontSize: 18,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...perks.map((perk) => _buildPerkItem(perk)),
+      ],
+    );
+  }
+
+  Widget _buildPerkItem(_PerkData perk) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(perk.icon, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              perk.text,
+              style: DMSansFont.regular.copyWith(
+                fontSize: 14,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactCard(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: AppColors.primary.withValues(alpha: 0.15)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.email_outlined,
+                  color: AppColors.primary,
+                  size: 28,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Found the signature?',
+                  style: DMSansFont.semiBold.copyWith(
+                    fontSize: 18,
+                    color: AppColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Drop me a message.',
+                  style: DMSansFont.regular.copyWith(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () => _showCopiedSnackBar(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.copy,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'gabrialdeora003@gmail.com',
+                          style: DMSansFont.medium.copyWith(
+                            fontSize: 14,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          right: 12,
+          top: -12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.auto_awesome, color: Colors.white, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  'SURPRISE!',
+                  style: DMSansFont.bold.copyWith(
+                    fontSize: 11,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showCopiedSnackBar(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Email copied! Send your message to gabrialdeora003@gmail.com',
+          style: DMSansFont.medium.copyWith(fontSize: 14, color: Colors.white),
+        ),
+        backgroundColor: AppColors.textPrimary,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+}
+
+class _PerkData {
+  final IconData icon;
+  final String text;
+  _PerkData({required this.icon, required this.text});
 }

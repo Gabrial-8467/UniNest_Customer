@@ -430,6 +430,7 @@ class ApiService {
     String? sortBy,
     String? order,
     bool? available,
+    String? foodType,
     int? page,
     int? limit,
   }) async {
@@ -446,44 +447,9 @@ class ApiService {
     if (sortBy != null) queryParams['sortBy'] = sortBy;
     if (order != null) queryParams['sortOrder'] = order;
     if (available != null) queryParams['isAvailable'] = available.toString();
+    if (foodType != null) queryParams['foodType'] = foodType;
     if (page != null) queryParams['page'] = page.toString();
     if (limit != null) queryParams['limit'] = limit.toString();
-
-    return await _makeRequest(
-      method: 'GET',
-      endpoint: ApiEndpoints.products,
-      token: token,
-      queryParams: queryParams,
-      usePublicBaseUrl: true,
-    );
-  }
-
-  static Future<Map<String, dynamic>> getFeaturedProducts({
-    String? token,
-    String? vendor,
-    String? category,
-    String? search,
-    double? minPrice,
-    double? maxPrice,
-    List<String>? dietary,
-    double? rating,
-    String? sortBy,
-    String? order,
-    bool? available,
-  }) async {
-    final queryParams = <String, String>{'featured': 'true'};
-    if (vendor != null) queryParams['vendor'] = vendor;
-    if (category != null) queryParams['category'] = category;
-    if (search != null) queryParams['search'] = search;
-    if (minPrice != null) queryParams['minPrice'] = minPrice.toString();
-    if (maxPrice != null) queryParams['maxPrice'] = maxPrice.toString();
-    if (dietary != null && dietary.isNotEmpty) {
-      queryParams['dietary'] = dietary.join(',');
-    }
-    if (rating != null) queryParams['rating'] = rating.toString();
-    if (sortBy != null) queryParams['sortBy'] = sortBy;
-    if (order != null) queryParams['order'] = order;
-    if (available != null) queryParams['available'] = available.toString();
 
     return await _makeRequest(
       method: 'GET',

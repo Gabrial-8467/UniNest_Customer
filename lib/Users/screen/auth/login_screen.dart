@@ -236,9 +236,9 @@ class _LoginScreenState extends State<LoginScreen>
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
                 child: Image.asset(
-                  'assets/uninest.jpeg',
-                  width: MediaQuery.of(context).size.width > 600 ? 120 : 100,
-                  height: MediaQuery.of(context).size.width > 600 ? 120 : 100,
+                  'assets/uninest.png',
+                  width: MediaQuery.of(context).size.width > 600 ? 150 : 130,
+                  height: MediaQuery.of(context).size.width > 600 ? 150 : 130,
                   fit: BoxFit.cover,
                 ),
               ),

@@ -73,7 +73,9 @@ flutter:
   assets:
     - .env
     - assets/env/app_config.txt
-    - assets/uninest.jpeg
+    - assets/uninest.png
+    - assets/play_store_512.png
+    - assets/app_store_1024.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -93,20 +95,19 @@ flutter:
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
-  image_path: "assets/uninest.jpeg"
-  min_sdk_android: 21 # android min sdk min:16, default 21
-  adaptive_icon_background: "#FFFFFF" # White background
-  adaptive_icon_foreground: "assets/uninest.jpeg"
+  image_path: "assets/uninest.png"
+  min_sdk_android: 16
+  padding: 40
   web:
     generate: true
-    image_path: "assets/uninest.jpeg"
-    background_color: "#hexcode"
-    theme_color: "#hexcode"
+    image_path: "assets/uninest.png"
+    background_color: "#FFFFFF"
+    theme_color: "#FFFFFF"
   windows:
     generate: true
-    image_path: "assets/uninest.jpeg"
-    icon_size: 256 # min:48, max:256, default: 48
+    image_path: "assets/uninest.png"
+    icon_size: 256
   macos:
     generate: true
-    image_path: "assets/uninest.jpeg"
-    icon_size: 256 # min:48, max:256, default: 48
+    image_path: "assets/uninest.png"
+    icon_size: 256

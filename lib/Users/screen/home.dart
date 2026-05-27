@@ -28,9 +28,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String selectedCategory = 'All';
   String selectedCanteenId = 'All';
 
-  // Cached future for featured products to prevent rebuilds
-  late Future<Map<String, dynamic>> _featuredProductsFuture;
-
   // Memoized filtered results to avoid recomputation
   List<Map<String, dynamic>>? _cachedFilteredCanteens;
   List<Map<String, dynamic>>? _cachedFilteredProducts;
@@ -39,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _lastCanteenCount = 0;
   String _lastCanteenFingerprint = '';
   String _lastProductFingerprint = '';
+  bool _lastVegMode = false;
 
   // Active order toast variables
   bool _showOrderToast = false;
@@ -59,8 +57,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     // Register for lifecycle events
     WidgetsBinding.instance.addObserver(this);
-    // Initialize cached future for featured products
-    _featuredProductsFuture = _fetchFeaturedProducts();
     // Check for active orders when home screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForActiveOrders();
@@ -482,115 +478,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return 0.0;
   }
 
-  bool _isProductFromOpenCanteen(
-    Map<dynamic, dynamic> product,
-    CampusAppState appState,
-  ) {
-    final vendor = product['vendor'];
-    final canteenId = vendor is Map
-        ? (vendor['_id'] ?? vendor['id'] ?? '').toString()
-        : (product['canteenId'] ?? product['vendorId'] ?? '').toString();
-
-    if (canteenId.isNotEmpty) {
-      final canteen = appState.getCanteenById(canteenId);
-      if (canteen != null) {
-        return canteen['isOpen'] == true;
-      }
-    }
-
-    if (vendor is Map) {
-      return _isVendorOpen(vendor);
-    }
-
-    return true;
-  }
-
-  bool _isVendorOpen(Map<dynamic, dynamic> vendor) {
-    final explicitOpen = _readBoolField(vendor, const [
-      'isOpen',
-      'is_open',
-      'open',
-      'isCurrentlyOpen',
-      'currentlyOpen',
-      'isAvailable',
-      'available',
-      'isAcceptingOrders',
-      'acceptingOrders',
-      'canteenOpen',
-    ]);
-    if (explicitOpen != null) return explicitOpen;
-
-    final businessDetails = vendor['businessDetails'];
-    if (businessDetails is Map) {
-      final businessOpen = _readBoolField(businessDetails, const [
-        'isOpen',
-        'isAvailable',
-        'isAcceptingOrders',
-        'acceptingOrders',
-        'canteenOpen',
-      ]);
-      if (businessOpen != null) return businessOpen;
-    }
-
-    final explicitClosed = _readBoolField(vendor, const [
-      'isClosed',
-      'closed',
-      'isCurrentlyClosed',
-      'currentlyClosed',
-    ]);
-    if (explicitClosed != null) return !explicitClosed;
-
-    final status = vendor['status']?.toString().trim().toLowerCase();
-    if (status != null && status.isNotEmpty) {
-      if (const {
-        'closed',
-        'inactive',
-        'disabled',
-        'offline',
-        'unavailable',
-        'temporarily_closed',
-        'temporarily closed',
-      }.contains(status)) {
-        return false;
-      }
-      if (const {'open', 'online', 'available'}.contains(status)) return true;
-    }
-
-    return true;
-  }
-
-  bool? _readBoolField(Map<dynamic, dynamic> data, List<String> keys) {
-    for (final key in keys) {
-      final value = data[key];
-      if (value is bool) return value;
-      if (value is num) return value != 0;
-      if (value is String) {
-        final normalized = value.trim().toLowerCase();
-        if (const {
-          'true',
-          '1',
-          'yes',
-          'open',
-          'available',
-          'online',
-        }.contains(normalized)) {
-          return true;
-        }
-        if (const {
-          'false',
-          '0',
-          'no',
-          'closed',
-          'unavailable',
-          'offline',
-        }.contains(normalized)) {
-          return false;
-        }
-      }
-    }
-    return null;
-  }
-
   String _canteenFingerprint(List<Map<String, dynamic>> canteens) {
     return canteens
         .map((canteen) {
@@ -633,7 +520,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _cachedFilteredProducts == null ||
             _lastSelectedCategory != selectedCategory ||
             _lastProductCount != allProducts.length ||
-            _lastProductFingerprint != productFingerprint;
+            _lastProductFingerprint != productFingerprint ||
+            _lastVegMode != appState.vegMode;
 
         if (shouldRecalculateCanteens) {
           _cachedFilteredCanteens = _filteredCanteens(allCanteens);
@@ -646,6 +534,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _lastSelectedCategory = selectedCategory;
           _lastProductCount = allProducts.length;
           _lastProductFingerprint = productFingerprint;
+          _lastVegMode = appState.vegMode;
         }
 
         final canteens = _cachedFilteredCanteens!.take(4).toList();
@@ -661,7 +550,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             color: AppColors.primary,
             child: CustomScrollView(
               slivers: [
-                SliverToBoxAdapter(child: _buildSearchBar()),
+                SliverToBoxAdapter(child: _buildSearchBar(appState)),
                 if (_showOrderToast)
                   SliverToBoxAdapter(child: _buildOrderToast()),
                 SliverToBoxAdapter(child: _buildCategories()),
@@ -701,6 +590,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       backgroundColor: AppColors.surface,
       elevation: 0,
       automaticallyImplyLeading: false,
+      titleSpacing: 16,
       title: GestureDetector(
         onTap: _onLogoTap,
         child: Row(
@@ -708,7 +598,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.asset(
-                'assets/uninest.jpeg',
+                'assets/uninest.png',
                 height: 40,
                 width: 40,
                 fit: BoxFit.cover,
@@ -729,39 +619,53 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(CampusAppState appState) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const SearchResultsScreen(),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.search, color: AppColors.textLight),
-              const SizedBox(width: 12),
-              Text(
-                'Search products or canteens...',
-                style: TextStyle(
-                  color: AppColors.textSecondary.withValues(alpha: 0.6),
-                  fontSize: 16,
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SearchResultsScreen(),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, color: AppColors.textLight),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Text(
+                        'Search...',
+                        style: TextStyle(
+                          color: AppColors.textSecondary.withValues(alpha: 0.6),
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(width: 4),
+          _VegModeToggle(appState: appState),
+        ],
       ),
     );
   }
@@ -875,7 +779,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       SliverToBoxAdapter(
         child: _buildCanteenSection(canteens, appState.isLoadingCanteens),
       ),
-      SliverToBoxAdapter(child: _buildFeaturedProductsSection(appState)),
       if (products.isEmpty && !appState.isLoadingProducts)
         SliverFillRemaining(
           hasScrollBody: false,
@@ -887,365 +790,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       else
         _buildProductsSliver(appState, products),
     ];
-  }
-
-  Widget _buildFeaturedProductsSection(CampusAppState appState) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _featuredProductsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
-        }
-
-        if (snapshot.hasError || !snapshot.hasData) {
-          return const SizedBox.shrink();
-        }
-
-        final result = snapshot.data!;
-        if (result['success'] != true) {
-          return const SizedBox.shrink();
-        }
-
-        final data = result['data'];
-        final List<dynamic> allProducts = data is Map
-            ? (data['products'] ?? [])
-            : (data ?? []);
-
-        // Filter only featured products
-        final List<dynamic> featuredProducts = allProducts.where((p) {
-          if (p is! Map) return false;
-          final isFeatured = p['isFeatured'] == true || p['featured'] == true;
-          return isFeatured && _isProductFromOpenCanteen(p, appState);
-        }).toList();
-
-        if (featuredProducts.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Section Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF6B6B),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Featured',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2D3436),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Vertical List of Featured Cards
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: featuredProducts.length,
-              itemBuilder: (context, index) {
-                final product = featuredProducts[index];
-                return _buildFeaturedProductCard(product, appState);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<Map<String, dynamic>> _fetchFeaturedProducts() async {
-    try {
-      final token = await AuthService.getToken();
-      return await ApiService.getFeaturedProducts(token: token);
-    } catch (e) {
-      debugPrint('Error fetching featured products: $e');
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
-  Widget _buildFeaturedProductCard(
-    Map<String, dynamic> product,
-    CampusAppState appState,
-  ) {
-    final productId = (product['id'] ?? product['_id'] ?? '').toString();
-    final price = (product['price'] as num?)?.toDouble() ?? 0;
-    final images = product['images'];
-    String imageUrl = '';
-    if (images is List && images.isNotEmpty) {
-      final firstImage = images[0];
-      if (firstImage is Map) {
-        imageUrl = (firstImage['url'] ?? '').toString();
-      } else {
-        imageUrl = firstImage.toString();
-      }
-    } else {
-      imageUrl = (product['imageUrl'] ?? product['image'] ?? '').toString();
-    }
-    // Extract vendor name - check nested vendor object first
-    String canteenName = 'Unknown';
-    final vendor = product['vendor'];
-    if (vendor is Map) {
-      canteenName =
-          (vendor['name'] ??
-                  vendor['businessName'] ??
-                  vendor['canteenName'] ??
-                  'Unknown')
-              .toString();
-    } else {
-      canteenName =
-          (product['canteenName'] ??
-                  product['vendorName'] ??
-                  product['businessName'] ??
-                  'Unknown')
-              .toString();
-    }
-
-    // Only show rating if it's greater than 0
-    // Handle both num and Map<String, dynamic> formats
-    final dynamic rawRatingData = product['rating'];
-    double? rawRating;
-    if (rawRatingData is num) {
-      rawRating = rawRatingData.toDouble();
-    } else if (rawRatingData is Map<String, dynamic>) {
-      final avg = rawRatingData['average'];
-      if (avg is num) {
-        rawRating = avg.toDouble();
-      }
-    }
-    final rating = (rawRating != null && rawRating > 0) ? rawRating : null;
-    final cuisine = (product['category'] ?? '').toString();
-    final deliveryTime = product['deliveryTime']?.toString();
-    final distance = product['distance']?.toString();
-    final offer = product['offer']?.toString();
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProductDetailsScreen(productId: productId),
-            ),
-          );
-        },
-        child: Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image Section
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16),
-                    ),
-                    child: imageUrl.isNotEmpty
-                        ? Image.network(
-                            imageUrl,
-                            height: 180,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                              height: 180,
-                              color: Colors.grey[200],
-                              child: const Icon(
-                                Icons.image_not_supported,
-                                size: 50,
-                              ),
-                            ),
-                          )
-                        : Container(
-                            height: 180,
-                            color: Colors.grey[200],
-                            child: const Icon(
-                              Icons.image_not_supported,
-                              size: 50,
-                            ),
-                          ),
-                  ),
-                  // Rating Badge
-                  if (rating != null)
-                    Positioned(
-                      bottom: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF4CAF50),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              rating.toStringAsFixed(1),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 2),
-                            const Icon(
-                              Icons.star,
-                              color: Colors.white,
-                              size: 12,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  // Favorite Icon
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.favorite_border,
-                        color: Colors.grey[600],
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              // Info Section
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Restaurant Name
-                    Text(
-                      canteenName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Color(0xFF2D3436),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Cuisine and Price
-                    Text(
-                      cuisine.isNotEmpty
-                          ? '$cuisine \u2022 \u20B9${price.toStringAsFixed(0)} for one'
-                          : '\u20B9${price.toStringAsFixed(0)} for one',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                    ),
-                    // Delivery Info (only if data exists)
-                    if (deliveryTime != null || distance != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Row(
-                          children: [
-                            if (deliveryTime != null) ...[
-                              Icon(
-                                Icons.access_time,
-                                size: 14,
-                                color: Colors.grey[600],
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                deliveryTime,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                            if (deliveryTime != null && distance != null)
-                              const SizedBox(width: 12),
-                            if (distance != null) ...[
-                              Icon(
-                                Icons.location_on,
-                                size: 14,
-                                color: Colors.grey[600],
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                distance,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    // Offer Badge (only if data exists)
-                    if (offer != null && offer.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F5E9),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.local_offer,
-                                size: 12,
-                                color: const Color(0xFF4CAF50),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                offer,
-                                style: const TextStyle(
-                                  color: Color(0xFF2E7D32),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildErrorBanner(String message) {
@@ -1460,13 +1004,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   ) {
     return SliverPadding(
       padding: const EdgeInsets.all(16),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.62,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-        ),
+      sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
           final product = products[index];
 
@@ -1494,49 +1032,57 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           final cartQuantity = appState.getCartQuantity(productId);
           final canAddToCart = appState.canAddToCart(productId);
 
-          return ProductCard(
-            productId: productId,
-            name: (product['name'] ?? 'Product Name').toString(),
-            price: (product['price'] as num?)?.toDouble() ?? 0,
-            imageUrl: product['imageUrl'] is Map
-                ? product['imageUrl']['url'] ?? ''
-                : (product['imageUrl'] ?? '').toString(),
-            canteenName: (product['canteenName'] ?? 'Unknown').toString(),
-            rating: rating,
-            reviewCount: reviewCount,
-            isFavorite: product['isFavorite'] == true,
-            discount: product['discount']?.toString(),
-            isNew: product['isNew'] == true,
-            availability: product['availability']?.toString(),
-            cartQuantity: cartQuantity,
-            canAddToCart: canAddToCart,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ProductDetailsScreen(productId: productId),
-                ),
-              );
-            },
-            onFavoriteTap: () {
-              final nextValue = !(product['isFavorite'] == true);
-              appState.setFavorite(productId, nextValue);
-            },
-            onQuantityChanged: (quantity) {
-              if (quantity <= 0) {
-                appState.removeFromCart(productId);
-              } else if (cartQuantity == 0) {
-                // Item not in cart yet - add it
-                final added = appState.addToCart(productId, quantity: quantity);
-                if (added) {
-                  _showAddToCartSnackbar();
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index < products.length - 1 ? 12 : 0,
+            ),
+            child: ProductCard(
+              productId: productId,
+              name: (product['name'] ?? 'Product Name').toString(),
+              price: (product['price'] as num?)?.toDouble() ?? 0,
+              imageUrl: product['imageUrl'] is Map
+                  ? product['imageUrl']['url'] ?? ''
+                  : (product['imageUrl'] ?? '').toString(),
+              canteenName: (product['canteenName'] ?? 'Unknown').toString(),
+              rating: rating,
+              reviewCount: reviewCount,
+              isFavorite: product['isFavorite'] == true,
+              discount: product['discount']?.toString(),
+              isNew: product['isNew'] == true,
+              availability: product['availability']?.toString(),
+              cartQuantity: cartQuantity,
+              canAddToCart: canAddToCart,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ProductDetailsScreen(productId: productId),
+                  ),
+                );
+              },
+              onFavoriteTap: () {
+                final nextValue = !(product['isFavorite'] == true);
+                appState.setFavorite(productId, nextValue);
+              },
+              onQuantityChanged: (quantity) {
+                if (quantity <= 0) {
+                  appState.removeFromCart(productId);
+                } else if (cartQuantity == 0) {
+                  // Item not in cart yet - add it
+                  final added = appState.addToCart(
+                    productId,
+                    quantity: quantity,
+                  );
+                  if (added) {
+                    _showAddToCartSnackbar();
+                  }
+                } else {
+                  // Item already in cart - update quantity
+                  appState.updateCartQuantity(productId, quantity);
                 }
-              } else {
-                // Item already in cart - update quantity
-                appState.updateCartQuantity(productId, quantity);
-              }
-            },
+              },
+            ),
           );
         }, childCount: products.length),
       ),
@@ -1558,6 +1104,59 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
+    );
+  }
+}
+
+class _VegModeToggle extends StatelessWidget {
+  final CampusAppState appState;
+
+  const _VegModeToggle({required this.appState});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: appState,
+      builder: (context, _) {
+        final isVegMode = appState.vegMode;
+        return GestureDetector(
+          onTap: () => appState.toggleVegMode(),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: isVegMode
+                  ? Colors.green.withValues(alpha: 0.1)
+                  : Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isVegMode ? Colors.green : Colors.grey[300]!,
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.eco_rounded,
+                  size: 16,
+                  color: isVegMode ? Colors.green : Colors.grey[500],
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Veg',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isVegMode ? Colors.green : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

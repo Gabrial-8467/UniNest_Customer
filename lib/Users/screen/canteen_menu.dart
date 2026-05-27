@@ -108,6 +108,7 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3436)),
             ),
+            actions: [_VegModeToggle(appState: appState)],
           ),
           body: SingleChildScrollView(
             child: Column(
@@ -663,11 +664,8 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
 
   Future<Map<String, dynamic>> _fetchFeaturedProducts() async {
     try {
-      final token = await AuthService.getToken();
-      return await ApiService.getFeaturedProducts(
-        token: token,
-        vendor: widget.canteenId,
-      );
+      final token = await AuthService.getToken() ?? '';
+      return await ApiService.getVendorProducts(token: token, isFeatured: true);
     } catch (e) {
       debugPrint('Error fetching featured products: $e');
       return {'success': false, 'error': e.toString()};
@@ -934,6 +932,75 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _VegModeToggle extends StatelessWidget {
+  final CampusAppState appState;
+
+  const _VegModeToggle({required this.appState});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: appState,
+      builder: (context, _) {
+        final isVegMode = appState.vegMode;
+        return GestureDetector(
+          onTap: () => appState.toggleVegMode(),
+          child: Container(
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isVegMode
+                  ? Colors.green.withValues(alpha: 0.12)
+                  : Colors.grey[100],
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isVegMode ? Colors.green : Colors.grey[400]!,
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.green, width: 1.5),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.circle, size: 7, color: Colors.green),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Veg',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isVegMode ? Colors.green : Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Switch(
+                  value: isVegMode,
+                  onChanged: (_) => appState.toggleVegMode(),
+                  activeThumbColor: Colors.green,
+                  activeTrackColor: Colors.green.withValues(alpha: 0.3),
+                  inactiveThumbColor: Colors.grey[400],
+                  inactiveTrackColor: Colors.grey[300],
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

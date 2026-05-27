@@ -210,9 +210,9 @@ class _SignupScreenState extends State<SignupScreen>
           Hero(
             tag: 'logo',
             child: Image.asset(
-              'assets/uninest.jpeg',
-              width: 150,
-              height: 150,
+              'assets/uninest.png',
+              width: 180,
+              height: 180,
               fit: BoxFit.cover,
             ),
           ),

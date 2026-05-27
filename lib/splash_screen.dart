@@ -82,8 +82,8 @@ class _SplashScreenState extends State<SplashScreen>
                     children: [
                       // Logo/Icon
                       Container(
-                        width: 120,
-                        height: 120,
+                        width: 160,
+                        height: 160,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
@@ -97,9 +97,9 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                         child: ClipOval(
                           child: Image.asset(
-                            'assets/uninest.jpeg',
-                            width: 120,
-                            height: 120,
+                            'assets/uninest.png',
+                            width: 150,
+                            height: 150,
                             fit: BoxFit.cover,
                           ),
                         ),

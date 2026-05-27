@@ -17,11 +17,16 @@ class SearchResultsScreen extends StatefulWidget {
 class _SearchResultsScreenState extends State<SearchResultsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final GlobalKey _searchFieldKey = GlobalKey();
   List<Map<String, dynamic>> _searchResults = [];
   List<Map<String, dynamic>> _vendors = [];
+  List<Map<String, dynamic>> _allProducts = [];
+  List<Map<String, dynamic>> _allCanteens = [];
   bool _isLoading = false;
+  bool _isLoadingSuggestions = false;
   String _errorMessage = '';
   bool _hasSearched = false;
+  OverlayEntry? _suggestionsOverlay;
 
   @override
   void initState() {
@@ -30,6 +35,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     if (widget.initialQuery.isNotEmpty) {
       _performSearch(widget.initialQuery);
     }
+    _fetchAllDataForSuggestions();
     // Auto-focus search field
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.requestFocus();
@@ -40,7 +46,36 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _suggestionsOverlay?.remove();
     super.dispose();
+  }
+
+  Future<void> _fetchAllDataForSuggestions() async {
+    try {
+      setState(() => _isLoadingSuggestions = true);
+      final result = await ApiService.search(query: '');
+      if (result['success'] == true && mounted) {
+        final dynamic data = result['data'];
+        List<dynamic> products = [];
+        List<dynamic> canteens = [];
+
+        if (data is List) {
+          products = data;
+        } else if (data is Map<String, dynamic>) {
+          products = data['products'] ?? [];
+          canteens = data['vendors'] ?? [];
+        }
+
+        setState(() {
+          _allProducts = products.cast<Map<String, dynamic>>();
+          _allCanteens = canteens.cast<Map<String, dynamic>>();
+          _isLoadingSuggestions = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching suggestions data: $e');
+      setState(() => _isLoadingSuggestions = false);
+    }
   }
 
   double _extractRating(Map<String, dynamic> product) {
@@ -169,6 +204,352 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     return true;
   }
 
+  void _showSuggestions(String query) {
+    final trimmedQuery = query.trim().toLowerCase();
+    if (trimmedQuery.isEmpty || _isLoadingSuggestions) {
+      _suggestionsOverlay?.remove();
+      _suggestionsOverlay = null;
+      return;
+    }
+
+    final filteredProducts = _allProducts
+        .where((product) {
+          final name = (product['name'] ?? '').toString().toLowerCase();
+          return name.contains(trimmedQuery);
+        })
+        .take(5)
+        .toList();
+
+    final filteredCanteens = _allCanteens
+        .where((canteen) {
+          final name = (canteen['name'] ?? canteen['businessName'] ?? '')
+              .toString()
+              .toLowerCase();
+          return name.contains(trimmedQuery);
+        })
+        .take(3)
+        .toList();
+
+    if (filteredProducts.isEmpty && filteredCanteens.isEmpty) {
+      _suggestionsOverlay?.remove();
+      _suggestionsOverlay = null;
+      return;
+    }
+
+    _suggestionsOverlay?.remove();
+
+    _suggestionsOverlay = OverlayEntry(
+      builder: (context) {
+        final renderBox =
+            _searchFieldKey.currentContext?.findRenderObject() as RenderBox?;
+        final position = renderBox?.localToGlobal(Offset.zero);
+        final size = renderBox?.size;
+
+        return Positioned(
+          left: 0,
+          top: (position?.dy ?? 0) + (size?.height ?? 48),
+          width: MediaQuery.of(context).size.width,
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              constraints: const BoxConstraints(maxHeight: 400),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (filteredCanteens.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Text(
+                          'Canteens',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      ...filteredCanteens.map((canteen) {
+                        final name =
+                            (canteen['name'] ??
+                                    canteen['businessName'] ??
+                                    'Canteen')
+                                .toString();
+                        final rating = (canteen['rating']?['average'] ?? 0.0)
+                            .toDouble();
+                        final isOpen = _isVendorOpen(canteen);
+                        return InkWell(
+                          onTap: () {
+                            _suggestionsOverlay?.remove();
+                            _suggestionsOverlay = null;
+                            _searchController.text = name;
+                            _searchFocusNode.requestFocus();
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.textLight.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.store,
+                                    color: AppColors.primary,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          if (rating > 0) ...[
+                                            const Icon(
+                                              Icons.star,
+                                              color: Colors.amber,
+                                              size: 14,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              rating.toStringAsFixed(1),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                          ],
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  (isOpen
+                                                          ? AppColors.success
+                                                          : AppColors.error)
+                                                      .withValues(alpha: 0.12),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              isOpen ? 'Open' : 'Closed',
+                                              style: TextStyle(
+                                                color: isOpen
+                                                    ? AppColors.success
+                                                    : AppColors.error,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                    if (filteredProducts.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Text(
+                          'Products',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      ...filteredProducts.map((product) {
+                        final name = (product['name'] ?? 'Product').toString();
+                        final price =
+                            (product['price'] as num?)?.toDouble() ?? 0;
+                        final images = product['images'];
+                        String imageUrl = '';
+                        if (images is List && images.isNotEmpty) {
+                          final firstImage = images[0];
+                          if (firstImage is Map) {
+                            imageUrl = (firstImage['url'] ?? '').toString();
+                          } else {
+                            imageUrl = firstImage.toString();
+                          }
+                        } else {
+                          imageUrl =
+                              (product['imageUrl'] ?? product['image'] ?? '')
+                                  .toString();
+                        }
+                        String canteenName = 'Unknown';
+                        final vendor = product['vendor'];
+                        if (vendor is Map) {
+                          canteenName =
+                              (vendor['businessName'] ??
+                                      vendor['name'] ??
+                                      'Unknown')
+                                  .toString();
+                        } else {
+                          canteenName =
+                              (product['canteenName'] ??
+                                      product['vendorName'] ??
+                                      'Unknown')
+                                  .toString();
+                        }
+                        return InkWell(
+                          onTap: () {
+                            _suggestionsOverlay?.remove();
+                            _suggestionsOverlay = null;
+                            _searchController.text = name;
+                            _searchFocusNode.requestFocus();
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.textLight.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: imageUrl.isNotEmpty
+                                      ? Image.network(
+                                          imageUrl,
+                                          width: 56,
+                                          height: 56,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, _, _) => Container(
+                                            width: 56,
+                                            height: 56,
+                                            color: Colors.grey[200],
+                                            child: const Icon(
+                                              Icons.restaurant,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        )
+                                      : Container(
+                                          width: 56,
+                                          height: 56,
+                                          color: Colors.grey[200],
+                                          child: const Icon(
+                                            Icons.restaurant,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        canteenName,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '₹${price.toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_suggestionsOverlay!);
+  }
+
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
       setState(() {
@@ -273,10 +654,16 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: TextField(
+          key: _searchFieldKey,
           controller: _searchController,
           focusNode: _searchFocusNode,
           textInputAction: TextInputAction.search,
-          onSubmitted: _performSearch,
+          onChanged: _showSuggestions,
+          onSubmitted: (value) {
+            _suggestionsOverlay?.remove();
+            _suggestionsOverlay = null;
+            _performSearch(value);
+          },
           decoration: InputDecoration(
             hintText: 'Search food, canteen...',
             hintStyle: TextStyle(
@@ -293,6 +680,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     ),
                     onPressed: () {
                       _searchController.clear();
+                      _suggestionsOverlay?.remove();
+                      _suggestionsOverlay = null;
                       setState(() {
                         _searchResults = [];
                         _hasSearched = false;
@@ -540,13 +929,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.62,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-              ),
+            child: ListView.builder(
+              padding: const EdgeInsets.only(bottom: 16),
               itemCount: _searchResults.length,
               itemBuilder: (context, index) {
                 final product = _searchResults[index];
@@ -609,39 +993,44 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   if (count is num) reviewCount = count.toInt();
                 }
 
-                return ProductCard(
-                  productId: productId,
-                  name: (product['name'] ?? 'Product Name').toString(),
-                  price: (product['price'] as num?)?.toDouble() ?? 0,
-                  imageUrl: imageUrl,
-                  canteenName: canteenName,
-                  rating: rating,
-                  reviewCount: reviewCount,
-                  isFavorite: product['isFavorite'] == true,
-                  discount: product['discount']?.toString(),
-                  isNew: product['isNew'] == true,
-                  availability: product['availability']?.toString(),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            ProductDetailsScreen(productId: productId),
-                      ),
-                    );
-                  },
-                  onFavoriteTap: () {
-                    // Handle favorite
-                  },
-                  onAddToCart: () {
-                    // Handle add to cart
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${product['name']} added to cart'),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index < _searchResults.length - 1 ? 12 : 0,
+                  ),
+                  child: ProductCard(
+                    productId: productId,
+                    name: (product['name'] ?? 'Product Name').toString(),
+                    price: (product['price'] as num?)?.toDouble() ?? 0,
+                    imageUrl: imageUrl,
+                    canteenName: canteenName,
+                    rating: rating,
+                    reviewCount: reviewCount,
+                    isFavorite: product['isFavorite'] == true,
+                    discount: product['discount']?.toString(),
+                    isNew: product['isNew'] == true,
+                    availability: product['availability']?.toString(),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              ProductDetailsScreen(productId: productId),
+                        ),
+                      );
+                    },
+                    onFavoriteTap: () {
+                      // Handle favorite
+                    },
+                    onAddToCart: () {
+                      // Handle add to cart
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${product['name']} added to cart'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),
