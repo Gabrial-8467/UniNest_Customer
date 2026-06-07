@@ -45,6 +45,7 @@ dependencies:
   razorpay_flutter: ^1.3.7
   google_fonts: ^6.2.1
   flutter_local_notifications: ^17.2.3
+  flutter_native_splash: ^2.4.7
 
 dev_dependencies:
   flutter_test:
@@ -74,6 +75,7 @@ flutter:
     - .env
     - assets/env/app_config.txt
     - assets/uninest.png
+    - assets/splash.png
     - assets/play_store_512.png
     - assets/app_store_1024.png
 
@@ -111,3 +113,16 @@ flutter_launcher_icons:
     generate: true
     image_path: "assets/uninest.png"
     icon_size: 256
+
+# Flutter Native Splash configuration
+flutter_native_splash:
+  color: "#E53935"
+  image: assets/splash.png
+  branding_bottom_padding: 72
+  android: true
+  ios: true
+  web: true
+  fullscreen: true
+  android_12:
+    color: "#E53935"
+    image: assets/splash.png

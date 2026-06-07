@@ -15,7 +15,6 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
     _restoreCartFromStorage();
     _restoreFavoritesFromStorage();
     _restoreOrdersFromStorage();
-    _restoreVegModeFromStorage();
     _startStatusUpdateTimer();
     _initializeBackendData();
     startNotificationPolling();
@@ -239,7 +238,6 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
   bool _isLoadingOrders = false;
   bool _isLoadingCategories = false;
   bool _isLoadingCanteens = false;
-  bool _vegMode = false;
 
   bool get hasConnectionError => _hasConnectionError;
   String get errorMessage => _errorMessage;
@@ -248,7 +246,6 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
   bool get isLoadingOrders => _isLoadingOrders;
   bool get isLoadingCategories => _isLoadingCategories;
   bool get isLoadingCanteens => _isLoadingCanteens;
-  bool get vegMode => _vegMode;
 
   // Backend pricing getters (fallback to local calculation if no backend pricing)
   Map<String, dynamic>? get backendPricing => _backendPricing;
@@ -321,7 +318,6 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
           token: token,
           page: page,
           limit: _productsPageSize,
-          foodType: _vegMode ? 'veg' : null,
         );
 
         if (response['success'] == true) {
@@ -428,20 +424,6 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
     } finally {
       _isLoadingProducts = false;
       notifyListeners();
-    }
-  }
-
-  void toggleVegMode() {
-    _vegMode = !_vegMode;
-    notifyListeners();
-    _persistVegModeToStorage();
-  }
-
-  void setVegMode(bool value) {
-    if (_vegMode != value) {
-      _vegMode = value;
-      notifyListeners();
-      _persistVegModeToStorage();
     }
   }
 
@@ -691,11 +673,7 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
   UnmodifiableListView<Map<String, dynamic>> get products =>
       UnmodifiableListView(
         _products.where((p) {
-          if (!_isProductFromOpenCanteen(p)) return false;
-          if (_vegMode) {
-            return (p['foodType']?.toString() ?? 'veg') == 'veg';
-          }
-          return true;
+          return _isProductFromOpenCanteen(p);
         }),
       );
 
@@ -726,10 +704,6 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
 
   List<Map<String, dynamic>> get favoriteProducts => _products
       .where(_isProductFromOpenCanteen)
-      .where(
-        (product) =>
-            !_vegMode || (product['foodType']?.toString() ?? 'veg') == 'veg',
-      )
       .where((product) => product['isFavorite'] == true)
       .map((product) => Map<String, dynamic>.from(product))
       .toList();
@@ -739,10 +713,6 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, dynamic>> productsByCanteen(String canteenId) => _products
       .where((product) => product['canteenId'] == canteenId)
       .where(_isProductFromOpenCanteen)
-      .where(
-        (product) =>
-            !_vegMode || (product['foodType']?.toString() ?? 'veg') == 'veg',
-      )
       .map((product) => Map<String, dynamic>.from(product))
       .toList();
 
@@ -759,9 +729,6 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
     for (final product in _products) {
       if (product['id'] == productId) {
         if (!_isProductFromOpenCanteen(product)) {
-          return null;
-        }
-        if (_vegMode && (product['foodType']?.toString() ?? 'veg') != 'veg') {
           return null;
         }
         return Map<String, dynamic>.from(product);
@@ -1891,28 +1858,6 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
       }
     } catch (_) {
       // Ignore invalid persisted orders data.
-    }
-  }
-
-  Future<void> _restoreVegModeFromStorage() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedVegMode = prefs.getBool('veg_mode');
-      if (savedVegMode != null && savedVegMode != _vegMode) {
-        _vegMode = savedVegMode;
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Error restoring veg mode: $e');
-    }
-  }
-
-  Future<void> _persistVegModeToStorage() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('veg_mode', _vegMode);
-    } catch (e) {
-      debugPrint('Error saving veg mode: $e');
     }
   }
 

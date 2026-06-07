@@ -429,8 +429,8 @@ class ApiService {
     double? rating,
     String? sortBy,
     String? order,
+    bool? featured,
     bool? available,
-    String? foodType,
     int? page,
     int? limit,
   }) async {
@@ -446,8 +446,8 @@ class ApiService {
     if (rating != null) queryParams['rating'] = rating.toString();
     if (sortBy != null) queryParams['sortBy'] = sortBy;
     if (order != null) queryParams['sortOrder'] = order;
+    if (featured != null) queryParams['featured'] = featured.toString();
     if (available != null) queryParams['isAvailable'] = available.toString();
-    if (foodType != null) queryParams['foodType'] = foodType;
     if (page != null) queryParams['page'] = page.toString();
     if (limit != null) queryParams['limit'] = limit.toString();
 
@@ -457,6 +457,39 @@ class ApiService {
       token: token,
       queryParams: queryParams,
       usePublicBaseUrl: true,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getFeaturedProducts({
+    String? token,
+    String? vendor,
+    String? category,
+    String? search,
+    double? minPrice,
+    double? maxPrice,
+    List<String>? dietary,
+    double? rating,
+    String? sortBy,
+    String? order,
+    bool? available,
+    int? page,
+    int? limit,
+  }) async {
+    return await getProducts(
+      token: token,
+      vendor: vendor,
+      category: category,
+      search: search,
+      minPrice: minPrice,
+      maxPrice: maxPrice,
+      dietary: dietary,
+      rating: rating,
+      sortBy: sortBy,
+      order: order,
+      available: available,
+      page: page,
+      limit: limit,
+      featured: true,
     );
   }
 

@@ -36,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _lastCanteenCount = 0;
   String _lastCanteenFingerprint = '';
   String _lastProductFingerprint = '';
-  bool _lastVegMode = false;
 
   // Active order toast variables
   bool _showOrderToast = false;
@@ -520,8 +519,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _cachedFilteredProducts == null ||
             _lastSelectedCategory != selectedCategory ||
             _lastProductCount != allProducts.length ||
-            _lastProductFingerprint != productFingerprint ||
-            _lastVegMode != appState.vegMode;
+            _lastProductFingerprint != productFingerprint;
 
         if (shouldRecalculateCanteens) {
           _cachedFilteredCanteens = _filteredCanteens(allCanteens);
@@ -534,7 +532,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _lastSelectedCategory = selectedCategory;
           _lastProductCount = allProducts.length;
           _lastProductFingerprint = productFingerprint;
-          _lastVegMode = appState.vegMode;
         }
 
         final canteens = _cachedFilteredCanteens!.take(4).toList();
@@ -663,8 +660,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
           ),
-          const SizedBox(width: 4),
-          _VegModeToggle(appState: appState),
         ],
       ),
     );
@@ -1104,59 +1099,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-    );
-  }
-}
-
-class _VegModeToggle extends StatelessWidget {
-  final CampusAppState appState;
-
-  const _VegModeToggle({required this.appState});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: appState,
-      builder: (context, _) {
-        final isVegMode = appState.vegMode;
-        return GestureDetector(
-          onTap: () => appState.toggleVegMode(),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: isVegMode
-                  ? Colors.green.withValues(alpha: 0.1)
-                  : Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isVegMode ? Colors.green : Colors.grey[300]!,
-                width: 1.5,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.eco_rounded,
-                  size: 16,
-                  color: isVegMode ? Colors.green : Colors.grey[500],
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Veg',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: isVegMode ? Colors.green : Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }

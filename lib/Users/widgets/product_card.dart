@@ -103,9 +103,9 @@ class _ProductCardState extends State<ProductCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildHeader(isDisabled),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       _buildCanteenInfo(isDisabled),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       _buildPriceAndRatingRow(
                         isDisabled,
                         discountedPrice,
@@ -289,7 +289,7 @@ class _ProductCardState extends State<ProductCard> {
         fontSize: 15,
         fontWeight: FontWeight.bold,
         color: isDisabled ? Colors.grey[600] : const Color(0xFF2D3436),
-        height: 1.2,
+        height: 1.0,
       ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
@@ -322,7 +322,7 @@ class _ProductCardState extends State<ProductCard> {
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: isDisabled
                 ? Colors.grey[300]
@@ -388,7 +388,7 @@ class _ProductCardState extends State<ProductCard> {
             ],
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
