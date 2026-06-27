@@ -284,7 +284,7 @@ class _ProductCardState extends State<ProductCard> {
 
   Widget _buildHeader(bool isDisabled) {
     return Text(
-      widget.name,
+      Formatters.capitalize(widget.name),
       style: TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.bold,
@@ -330,7 +330,7 @@ class _ProductCardState extends State<ProductCard> {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
-            widget.canteenName,
+            Formatters.capitalize(widget.canteenName),
             style: TextStyle(
               fontSize: 10,
               color: isDisabled ? Colors.grey[600] : AppColors.primary,

@@ -63,10 +63,31 @@ class Formatters {
     }
   }
 
-  // Capitalize first letter
+  // Capitalize the first letter of each word with support for acronyms and hyphenated words
   static String capitalize(String text) {
     if (text.isEmpty) return text;
-    return text[0].toUpperCase() + text.substring(1).toLowerCase();
+    return text.split(' ').map((word) {
+      if (word.isEmpty) return word;
+      if (word.contains('-')) {
+        return word.split('-').map((subWord) => _capitalizeWord(subWord)).join('-');
+      }
+      return _capitalizeWord(word);
+    }).join(' ');
+  }
+
+  static String _capitalizeWord(String word) {
+    if (word.isEmpty) return word;
+    // If the word is entirely uppercase and longer than 1 character (acronyms like KFC, VEG), preserve it
+    if (word == word.toUpperCase() && word.length > 1) {
+      return word;
+    }
+    // Otherwise, capitalize the first letter and convert the rest to lowercase ONLY if the rest was all uppercase (e.g. "BURGER" -> "Burger")
+    final firstChar = word[0].toUpperCase();
+    final remainder = word.substring(1);
+    if (remainder == remainder.toUpperCase() && remainder.isNotEmpty) {
+      return firstChar + remainder.toLowerCase();
+    }
+    return firstChar + remainder;
   }
 
   // Truncate text with ellipsis

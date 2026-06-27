@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/utils.dart';
 import '../state/app_state.dart';
 import '../widgets/product_card.dart';
 import 'product_details.dart';
@@ -342,7 +343,7 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
                     ),
                     child: Center(
                       child: Text(
-                        category,
+                        Formatters.capitalize(category),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: isSelected
@@ -364,27 +365,30 @@ class _CanteenMenuScreenState extends State<CanteenMenuScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.no_food, size: 64, color: Colors.grey),
-            const SizedBox(height: 12),
-            const Text(
-              'No menu items found',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3436),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.no_food, size: 64, color: Colors.grey),
+              const SizedBox(height: 12),
+              const Text(
+                'No menu items found',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D3436),
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Try changing your category filter.',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'Try changing your category filter.',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ],
+          ),
         ),
       ),
     );

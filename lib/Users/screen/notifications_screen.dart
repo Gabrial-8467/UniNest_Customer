@@ -29,6 +29,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
   Timer? _timeUpdateTimer;
 
+  static const String _menuRefresh = 'refresh';
   static const String _menuMarkAllRead = 'mark_all_read';
   static const String _menuClearAll = 'clear_all';
   static const String _clearedNotificationsKey = 'cleared_notification_ids';
@@ -305,6 +306,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _handleHeaderMenuAction(String action) async {
     switch (action) {
+      case _menuRefresh:
+        await _loadNotifications(refresh: true);
+        break;
       case _menuMarkAllRead:
         await _markAllAsRead();
         break;
@@ -457,17 +461,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             : null,
         automaticallyImplyLeading: widget.showBackButton,
         actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: isLoading
-                ? null
-                : () => _loadNotifications(refresh: true),
-            icon: const Icon(Icons.refresh, color: AppColors.textPrimary),
-          ),
           PopupMenuButton<String>(
             onSelected: _handleHeaderMenuAction,
             icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
             itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: _menuRefresh,
+                enabled: !isLoading,
+                child: const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.refresh),
+                  title: Text('Refresh'),
+                ),
+              ),
               PopupMenuItem<String>(
                 value: _menuMarkAllRead,
                 enabled: notifications.isNotEmpty,

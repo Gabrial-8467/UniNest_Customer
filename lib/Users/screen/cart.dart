@@ -77,53 +77,56 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _buildEmptyCart(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.shopping_cart_outlined,
+                  size: 60,
+                  color: Color(0xFFFF6B6B),
+                ),
               ),
-              child: const Icon(
-                Icons.shopping_cart_outlined,
-                size: 60,
-                color: Color(0xFFFF6B6B),
+              const SizedBox(height: 24),
+              const Text(
+                'Your cart is empty',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D3436),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Your cart is empty',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3436),
+              const SizedBox(height: 8),
+              Text(
+                'Add items from home or canteen menu to checkout.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Add items from home or canteen menu to checkout.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed:
-                  widget.onBrowseMenu ??
-                  () {
-                    if (widget.showBackButton) {
-                      Navigator.pop(context);
-                      return;
-                    }
-                    Navigator.pushNamed(context, '/home');
-                  },
-              child: const Text('Browse Menu'),
-            ),
-          ],
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed:
+                    widget.onBrowseMenu ??
+                    () {
+                      if (widget.showBackButton) {
+                        Navigator.pop(context);
+                        return;
+                      }
+                      Navigator.pushNamed(context, '/home');
+                    },
+                child: const Text('Browse Menu'),
+              ),
+            ],
+          ),
         ),
       ),
     );

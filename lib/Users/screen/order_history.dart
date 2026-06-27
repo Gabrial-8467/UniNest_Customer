@@ -65,49 +65,52 @@ class OrderHistoryScreen extends StatelessWidget {
 
   Widget _buildEmptyState(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF6B6B).withValues(alpha: 0.12),
-                shape: BoxShape.circle,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF6B6B).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.receipt_long_outlined,
+                  size: 52,
+                  color: Color(0xFFFF6B6B),
+                ),
               ),
-              child: const Icon(
-                Icons.receipt_long_outlined,
-                size: 52,
-                color: Color(0xFFFF6B6B),
+              const SizedBox(height: 20),
+              const Text(
+                'No orders placed yet',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D3436),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'No orders placed yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3436),
+              const SizedBox(height: 8),
+              Text(
+                'Your placed orders will show up here, and you can track them anytime.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your placed orders will show up here, and you can track them anytime.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => AppStateScope.of(context).refreshOrders(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => AppStateScope.of(context).refreshOrders(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Retry'),
               ),
-              child: const Text('Retry'),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

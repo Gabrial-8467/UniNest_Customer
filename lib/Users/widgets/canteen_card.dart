@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../utils/app_theme.dart';
+import '../../utils/utils.dart';
 
 class CanteenCard extends StatelessWidget {
   final String name;
@@ -87,7 +88,7 @@ class CanteenCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    name,
+                    Formatters.capitalize(name),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -126,7 +127,7 @@ class CanteenCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              location,
+              Formatters.capitalize(location),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

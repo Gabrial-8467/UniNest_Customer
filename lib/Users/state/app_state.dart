@@ -340,10 +340,10 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
                     product['_id']?.toString() ??
                     product['id']?.toString() ??
                     '',
-                'name': product['name'] ?? '',
+                'name': Formatters.capitalize((product['name'] ?? '').toString()),
                 'description': product['description'] ?? '',
                 'price': (product['price'] as num?)?.toDouble() ?? 0.0,
-                'category': product['category'] ?? '',
+                'category': Formatters.capitalize((product['category'] ?? '').toString()),
                 'imageUrl':
                     _extractImageUrl(product['image']) ??
                     _extractImageUrl(product['imageUrl']) ??
@@ -374,7 +374,7 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
                     ? (vendorData['_id']?.toString() ?? '')
                     : '',
                 'canteenName': vendorData is Map<String, dynamic>
-                    ? (vendorData['businessName'] ?? 'Main Canteen')
+                    ? Formatters.capitalize((vendorData['businessName'] ?? 'Main Canteen').toString())
                     : 'Main Canteen',
                 'rating': _extractRatingValue(product['rating']),
                 'reviewCount': _extractReviewCount(
@@ -505,7 +505,7 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
 
           for (final product in productsData) {
             if (product is Map<String, dynamic>) {
-              final category = (product['category'] ?? '').toString();
+              final category = Formatters.capitalize((product['category'] ?? '').toString());
               if (category.isNotEmpty) {
                 uniqueCategories.add(category);
               }
@@ -570,13 +570,15 @@ class CampusAppState extends ChangeNotifier with WidgetsBindingObserver {
             // Convert backend canteen format to app format
             final appCanteen = {
               'id': vendor['_id']?.toString() ?? vendor['id']?.toString() ?? '',
-              'name': vendor['businessName'] ?? '',
-              'location': location is Map<String, dynamic>
-                  ? (location['address'] ??
-                        location['city'] ??
-                        location['landmark'] ??
-                        '')
-                  : (vendor['location'] ?? ''),
+              'name': Formatters.capitalize((vendor['businessName'] ?? '').toString()),
+              'location': Formatters.capitalize(
+                (location is Map<String, dynamic>
+                    ? (location['address'] ??
+                          location['city'] ??
+                          location['landmark'] ??
+                          '')
+                    : (vendor['location'] ?? '')).toString()
+              ),
               'rating': rating is Map<String, dynamic>
                   ? (rating['average'] as num?)?.toDouble() ?? 0.0
                   : (vendor['rating'] as num?)?.toDouble() ?? 0.0,

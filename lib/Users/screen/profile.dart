@@ -5,7 +5,6 @@ import '../../../utils/app_theme.dart';
 import '../../../utils/utils.dart';
 
 import 'order_history.dart';
-import 'wishlist.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool showBackButton;
@@ -326,21 +325,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 10),
           _menuItem(
-            icon: Icons.favorite,
-            title: 'Wishlist',
-            subtitle: 'Your favorite products',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      const WishlistScreen(showBackButton: true),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          _menuItem(
             icon: Icons.help,
             title: 'Help & Support',
             subtitle: 'Coming soon',
@@ -351,7 +335,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.logout,
             title: 'Logout',
             subtitle: 'Sign out of your account',
-            isDestructive: true,
             onTap: _showLogoutDialog,
           ),
           const SizedBox(height: 20),

@@ -671,7 +671,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
               fontSize: 16,
             ),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            contentPadding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(

@@ -41,7 +41,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      fontFamily: 'DMSans',
+      fontFamily: GoogleFonts.dmSans().fontFamily,
 
       // Color Scheme
       colorScheme: const ColorScheme(
