@@ -47,12 +47,12 @@ android {
     
     applicationVariants.configureEach {
         val variant = this
-        variant.outputs
-            .configureEach {
-                val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-                val outputFileName = "UniNest-${variant.versionName}-${variant.buildType.name}.apk"
-                output.outputFileName = outputFileName
-            }
+        variant.outputs.configureEach {
+            val output = this as? com.android.build.gradle.internal.api.ApkVariantOutputImpl
+            val abi = output?.filters?.find { it.filterType == "ABI" }?.identifier
+            val abiSuffix = if (abi != null) "-$abi" else ""
+            output?.outputFileName = "UniNest-${variant.versionName}${abiSuffix}-${variant.buildType.name}.apk"
+        }
     }
 }
 

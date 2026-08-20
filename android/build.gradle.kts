@@ -24,6 +24,26 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Force all subprojects to use the local JDK instead of auto-provisioning
+subprojects {
+    plugins.withId("java") {
+        extensions.configure<JavaPluginExtension> {
+            toolchain {
+                languageVersion.set(JavaLanguageVersion.of(25))
+                vendor.set(JvmVendorSpec.matching("Red Hat"))
+            }
+        }
+    }
+    plugins.withId("java-library") {
+        extensions.configure<JavaPluginExtension> {
+            toolchain {
+                languageVersion.set(JavaLanguageVersion.of(25))
+                vendor.set(JvmVendorSpec.matching("Red Hat"))
+            }
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
